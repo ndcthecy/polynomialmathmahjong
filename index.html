@@ -33,7 +33,12 @@
 
     <!-- 頂部控制列 -->
     <div class="flex justify-between items-center p-4 bg-emerald-950 shadow-md z-10 h-16">
-        <h1 class="text-2xl font-bold text-yellow-400 tracking-wider">多項式麻雀遊戲</h1>
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-bold text-yellow-400 tracking-wider">多項式麻雀遊戲</h1>
+            <div id="round-display" class="font-bold text-emerald-300 hidden bg-emerald-800 px-3 py-1 rounded-full text-sm">
+                第 1 回合 / 共 3 回合
+            </div>
+        </div>
         <div class="flex gap-4">
             <div id="connection-status" class="flex items-center text-sm font-bold text-gray-400">
                 連線中...
@@ -47,7 +52,7 @@
     <div id="screen-menu" class="flex-1 flex flex-col items-center justify-center">
         <div class="bg-emerald-800 p-8 rounded-xl shadow-2xl max-w-lg text-center border-4 border-emerald-700 w-full">
             <h2 class="text-3xl font-bold mb-6 text-white">數學十三隻 (3人對戰)</h2>
-            <p class="mb-8 text-emerald-100 leading-relaxed text-lg">
+            <p class="mb-4 text-emerald-100 leading-relaxed text-lg">
                 這款麻雀遊戲將傳統的萬、索、筒替換為：<br/>
                 <span class="text-blue-300 font-bold">常數項 (-4 至 4)</span><br/>
                 <span class="text-green-300 font-bold">x項 (-4x 至 4x)</span><br/>
@@ -60,7 +65,7 @@
 
             <div class="flex flex-col gap-4">
                 <button onclick="startSinglePlayer()" class="px-8 py-3 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg shadow border border-gray-500 text-xl transition-transform hover:scale-105">
-                    單人遊戲 (與電腦對戰)
+                    單機遊玩 (與電腦對戰)
                 </button>
                 <div class="h-px bg-emerald-600 my-2"></div>
                 <button id="btn-create-room" onclick="createRoom()" disabled class="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-lg text-xl transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
@@ -100,7 +105,7 @@
 
             <div id="lobby-host-controls" class="hidden">
                 <button onclick="startMultiplayerGame()" class="w-full px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-lg text-xl pulse-border transition-transform hover:scale-105">
-                    開始遊戲
+                    開始遊戲 (共3回合)
                 </button>
             </div>
             <div id="lobby-guest-msg" class="text-emerald-200 italic hidden">
@@ -113,7 +118,7 @@
     <!-- 擲骰子畫面 -->
     <div id="screen-dice" class="flex-1 flex flex-col items-center justify-center hidden">
         <div class="bg-emerald-800 p-12 rounded-2xl border-4 border-yellow-400 text-center shadow-2xl flex flex-col items-center">
-            <h2 class="text-4xl font-black mb-8 text-yellow-300 tracking-widest">擲骰子決定莊家</h2>
+            <h2 id="dice-title" class="text-4xl font-black mb-8 text-yellow-300 tracking-widest">決定先手莊家</h2>
             <div class="flex gap-8 justify-center mb-8">
                 <div id="dice-1" class="w-24 h-24 bg-white text-red-600 rounded-2xl shadow-inner flex items-center justify-center text-7xl font-black">⚀</div>
                 <div id="dice-2" class="w-24 h-24 bg-white text-red-600 rounded-2xl shadow-inner flex items-center justify-center text-7xl font-black">⚀</div>
@@ -124,10 +129,9 @@
         </div>
     </div>
 
-    <!-- 遊戲畫面 (3 人配置：左上家、右下家) -->
+    <!-- 遊戲畫面 -->
     <div id="screen-game" class="flex-1 flex flex-col justify-between p-2 hidden">
         
-        <!-- Top Padding (用來代替原本對家的空間) -->
         <div class="h-12 flex justify-center items-center">
             <div id="multiplayer-status-msg" class="text-yellow-300 font-bold bg-black/50 px-4 py-1 rounded hidden">
                 等待其他玩家動作...
@@ -179,11 +183,11 @@
                 <!-- 玩家手牌區 -->
                 <div id="player-hand" class="flex gap-1"></div>
             </div>
-            <div id="player-name-display" class="mt-2 font-bold text-white text-lg">你 (玩家)</div>
+            <div id="player-name-display" class="mt-2 font-bold text-white text-lg">你 (玩家) | 積分: 0</div>
         </div>
     </div>
 
-    <!-- 測驗彈窗 (糊牌後的計算) -->
+    <!-- 測驗彈窗 -->
     <div id="modal-quiz" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-40 hidden">
         <div class="bg-emerald-800 p-8 rounded-2xl border-4 border-yellow-400 max-w-4xl w-full text-center shadow-2xl">
             <h2 class="text-4xl font-black mb-2 text-yellow-400 tracking-wider">糊牌確認：多項式化簡</h2>
@@ -217,25 +221,44 @@
         </div>
     </div>
 
-    <!-- 遊戲結束視窗 -->
+    <!-- 遊戲/回合結束視窗 -->
     <div id="modal-gameover" class="absolute inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
-        <div class="bg-emerald-100 p-8 rounded-2xl max-w-2xl text-center text-gray-900 border-8 border-yellow-500 flex flex-col items-center">
-            <h2 id="go-title" class="text-5xl font-black mb-4 text-red-600 drop-shadow-sm"></h2>
+        <div class="bg-emerald-100 p-8 rounded-2xl max-w-2xl w-full text-center text-gray-900 border-8 border-yellow-500 flex flex-col items-center">
+            <h2 id="go-title" class="text-5xl font-black mb-2 text-red-600 drop-shadow-sm"></h2>
+            <div id="go-patterns" class="text-xl text-emerald-800 font-black mb-2"></div>
+            <div id="go-score-display" class="text-2xl font-black text-blue-700 mb-4 hidden">獲得積分: +<span id="go-score"></span> 分</div>
             
             <div id="go-hand-container" class="hidden flex-col items-center w-full">
-                <p class="mb-4 text-xl font-bold text-emerald-900">勝利牌型：</p>
-                <div class="flex justify-center flex-wrap gap-2 mb-8 bg-emerald-800 p-4 rounded-lg w-full">
+                <p class="mb-2 text-lg font-bold text-emerald-900">勝利牌型：</p>
+                <div class="flex justify-center flex-wrap gap-2 mb-6 bg-emerald-800 p-4 rounded-lg w-full">
                    <div id="go-melds" class="flex gap-1 mr-4 border-r-2 border-emerald-600 pr-4"></div>
                    <div id="go-hand" class="flex gap-1"></div>
                 </div>
             </div>
 
-            <div id="go-zha-hu-info" class="hidden mb-8 text-xl font-bold text-red-700 bg-red-100 p-4 rounded border-2 border-red-300">
+            <div id="go-zha-hu-info" class="hidden mb-6 text-xl font-bold text-red-700 bg-red-100 p-4 rounded border-2 border-red-300">
                 正確答案應該是：<br>
                 <span id="go-correct-ans" class="text-2xl font-black"></span>
             </div>
 
-            <button onclick="quitGame()" class="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-full shadow-lg text-xl mt-4">
+            <div id="go-next-controls" class="mt-4 flex gap-4">
+                <!-- 動態按鈕 (下一回合 或 查看最終排名) -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 最終積分榜 -->
+    <div id="screen-leaderboard" class="flex-1 flex flex-col items-center justify-center hidden">
+        <div class="bg-emerald-800 p-8 rounded-2xl border-4 border-yellow-400 w-full max-w-lg text-center shadow-2xl relative overflow-hidden">
+            <!-- 裝飾 -->
+            <div class="absolute -top-10 -left-10 text-9xl opacity-20 text-yellow-300">★</div>
+            <div class="absolute -bottom-10 -right-10 text-9xl opacity-20 text-yellow-300">★</div>
+            
+            <h2 class="text-4xl font-black mb-6 text-yellow-300 tracking-widest relative z-10">最終積分榜</h2>
+            <div id="leaderboard-list" class="flex flex-col gap-3 mb-8 relative z-10">
+                <!-- 排名自動生成 -->
+            </div>
+            <button onclick="quitGame()" class="px-8 py-3 bg-red-600 hover:bg-red-500 text-white font-bold rounded-full shadow-lg text-xl transition-transform hover:scale-105 relative z-10">
                 返回主選單
             </button>
         </div>
@@ -249,32 +272,35 @@
     <!-- 規則說明視窗 -->
     <div id="modal-rules" class="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4 hidden">
         <div class="bg-white text-gray-800 p-8 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-2xl font-bold text-emerald-800">多項式麻雀遊戲 規則</h2>
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold text-emerald-800">多項式麻雀 遊戲規則</h2>
                 <button onclick="toggleRules(false)" class="text-gray-500 hover:text-red-500 font-bold text-xl">✕</button>
             </div>
-            <div class="space-y-4 text-lg">
-                <p>這是一個以香港麻雀為基礎簡化的 3 人教育遊戲。沒有番子，也沒有對家。</p>
-                <div class="bg-emerald-50 p-4 rounded border border-emerald-200">
-                    <h3 class="font-bold text-emerald-700 border-b pb-2 mb-2">花色對應</h3>
-                    <ul class="list-disc pl-5 space-y-2">
-                        <li><strong>萬子</strong> 變成了 <span class="text-blue-600 font-bold">常數項</span>: -4 至 4</li>
-                        <li><strong>索子</strong> 變成了 <span class="text-green-600 font-bold">x 項</span>: -4x 至 4x</li>
-                        <li><strong>筒子</strong> 變成了 <span class="text-red-600 font-bold">x² 項</span>: -4x² 至 4x²</li>
+            <div class="space-y-4 text-sm md:text-base">
+                <p>3 人教育遊戲，無番子、無對家。完整進行 <b>3 個回合</b> 結算最終積分。</p>
+                <div class="bg-emerald-50 p-3 rounded border border-emerald-200">
+                    <h3 class="font-bold text-emerald-700 border-b pb-1 mb-2">花色對應 (同類項才能組合)</h3>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li><strong>萬子</strong> = <span class="text-blue-600 font-bold">常數項</span>: -4 至 4</li>
+                        <li><strong>索子</strong> = <span class="text-green-600 font-bold">x 項</span>: -4x 至 4x</li>
+                        <li><strong>筒子</strong> = <span class="text-red-600 font-bold">x² 項</span>: -4x² 至 4x²</li>
                     </ul>
                 </div>
-                <div class="bg-emerald-50 p-4 rounded border border-emerald-200">
-                    <h3 class="font-bold text-emerald-700 border-b pb-2 mb-2">組合牌型 (同類項才能組合)</h3>
-                    <ul class="list-disc pl-5 space-y-2">
-                        <li><strong>順子 (吃)</strong>：三個連續系數的同類項。例如：<code class="bg-white px-2 py-1 rounded shadow-sm">-2x, -1x, 0x</code></li>
-                        <li><strong>刻子 (碰)</strong>：三張完全相同的牌。例如：<code class="bg-white px-2 py-1 rounded shadow-sm">3x, 3x, 3x</code></li>
-                        <li><strong>眼 (將)</strong>：兩張完全相同的牌。</li>
+                <div class="bg-blue-50 p-3 rounded border border-blue-200">
+                    <h3 class="font-bold text-blue-700 border-b pb-1 mb-2">積分表</h3>
+                    <ul class="grid grid-cols-2 gap-2 font-bold text-gray-700">
+                        <li>碰牌: <span class="text-blue-600">+10分</span></li>
+                        <li>上牌 (吃): <span class="text-blue-600">+10分</span></li>
+                        <li>自摸: <span class="text-blue-600">+10分</span></li>
+                        <li class="col-span-2">清一色 (全部牌均為同類): <span class="text-red-600">+150分</span></li>
+                        <li class="col-span-2">缺一色 (全部牌只有兩類): <span class="text-red-600">+80分</span></li>
+                        <li class="col-span-2">混色 (全部牌三種類別都出現): <span class="text-red-600">+30分</span></li>
                     </ul>
                 </div>
-                <p class="font-bold text-red-600 mt-4">勝出條件：集齊 4組 (順子/刻子) 加上 1對眼 (共 14 張牌)。</p>
-                <p class="font-bold text-yellow-600 bg-yellow-100 p-2 border border-yellow-300 rounded">糊牌結算：糊牌後必須正確算出所有牌加總起來的化簡多項式，答錯即視為詐糊並輸掉遊戲。</p>
+                <p class="font-bold text-red-600 mt-2">勝出條件：集齊 4組 (順子/刻子) 加上 1對眼 (共 14 張牌)。</p>
+                <p class="font-bold text-yellow-600 bg-yellow-100 p-2 border border-yellow-300 rounded text-sm">糊牌結算：糊牌後必須正確算出化簡多項式，答錯即視為「詐糊」，不會獲得任何分數且該回合直接結束。</p>
             </div>
-            <button onclick="toggleRules(false)" class="mt-8 w-full py-3 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700">我明白了，返回遊戲</button>
+            <button onclick="toggleRules(false)" class="mt-6 w-full py-3 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700">我明白了，返回遊戲</button>
         </div>
     </div>
 
@@ -292,24 +318,26 @@
         ];
         const RANKS = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
 
-        // 系統狀態
-        let gameState = 'MENU'; // MENU, LOBBY, DICE_ROLL, PLAYING, QUIZ, GAME_OVER
+        let gameState = 'MENU'; // MENU, LOBBY, DICE_ROLL, PLAYING, QUIZ, GAME_OVER, LEADERBOARD
         let gameMode = 'SINGLE'; // SINGLE, MULTI
         
-        // 遊戲狀態 (單機/雲端共用)
+        // 遊戲狀態與回合制
+        let currentRound = 1;
+        let roundStarter = 0;
+        
         let deck = [];
-        let players = []; // 3 players max
+        let players = []; // [{uid, name, hand, melds, score}]
         let tableDiscards = [];
-        let turn = 0; // 0, 1, 2 (index in players array)
-        let phase = 'INIT'; // DRAW, DISCARD, REACTION
+        let turn = 0; 
+        let phase = 'INIT'; 
         let lastDiscard = null;
         let drawnTileId = null;
-        let reactionsMap = {}; // Multi: {uid: 'SKIP'/'PONG' etc}
-        let reactionOptions = null; // Local options
+        let reactionsMap = {}; 
+        let reactionOptions = null; 
 
         let gameTimer = null;
         let diceInterval = null;
-        let myServerIndex = 0; // 在 players 陣列中的位置
+        let myServerIndex = 0;
 
         // Firebase
         let db, auth;
@@ -338,7 +366,6 @@
             if (inputName) myName = inputName;
         }
 
-        // 初始化 Firebase
         async function initFirebase() {
             let firebaseConfig = null;
             if (typeof __firebase_config !== 'undefined' && __firebase_config) {
@@ -435,6 +462,35 @@
             return solve(false);
         }
 
+        // --- 計分系統 ---
+        function calculateWinScore(player, finalHand, isTsumo) {
+            let score = 0;
+            let patterns = [];
+            
+            if (isTsumo) {
+                score += 10;
+                patterns.push("自摸 (+10分)");
+            }
+            
+            // 計算清一色 / 缺一色
+            let suits = new Set();
+            finalHand.forEach(t => suits.add(t.suit));
+            player.melds.forEach(m => m.tiles.forEach(t => suits.add(t.suit)));
+            
+            if (suits.size === 1) {
+                score += 150;
+                patterns.push("清一色 (+150分)");
+            } else if (suits.size === 2) {
+                score += 80;
+                patterns.push("缺一色 (+80分)");
+            } else if (suits.size === 3) {
+                score += 30;
+                patterns.push("混色 (+30分)");
+            }
+            
+            return { score, patterns };
+        }
+
         // --- UI 流程切換 ---
         function setUIState(state) {
             gameState = state;
@@ -445,7 +501,11 @@
             document.getElementById('screen-game').classList.toggle('hidden', state !== 'PLAYING');
             document.getElementById('modal-quiz').classList.toggle('hidden', state !== 'QUIZ');
             document.getElementById('modal-gameover').classList.toggle('hidden', state !== 'GAME_OVER');
-            document.getElementById('btn-quit').classList.toggle('hidden', state === 'MENU');
+            document.getElementById('screen-leaderboard').classList.toggle('hidden', state !== 'LEADERBOARD');
+            
+            const isGameActive = (state === 'PLAYING' || state === 'QUIZ' || state === 'GAME_OVER' || state === 'DICE_ROLL' || state === 'LEADERBOARD');
+            document.getElementById('btn-quit').classList.toggle('hidden', !isGameActive);
+            document.getElementById('round-display').classList.toggle('hidden', !isGameActive);
         }
 
         window.quitGame = function() {
@@ -457,6 +517,8 @@
         // --- 擲骰子動畫邏輯 ---
         function showDiceScreen(d1, d2, starterName) {
             setUIState('DICE_ROLL');
+            document.getElementById('dice-title').innerText = `第 ${currentRound} 回合 - 決定莊家`;
+            
             const d1El = document.getElementById('dice-1');
             const d2El = document.getElementById('dice-2');
             const resEl = document.getElementById('dice-result');
@@ -464,13 +526,11 @@
             resEl.classList.add('opacity-0');
             clearInterval(diceInterval);
 
-            // 快速切換數字動畫
             diceInterval = setInterval(() => {
                 d1El.innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][Math.floor(Math.random()*6)];
                 d2El.innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][Math.floor(Math.random()*6)];
             }, 80);
 
-            // 1.5 秒後定格並顯示結果
             setTimeout(() => {
                 if(gameState !== 'DICE_ROLL') return; 
                 clearInterval(diceInterval);
@@ -482,44 +542,122 @@
             }, 1500);
         }
 
-        // --- 單人遊戲邏輯 (3 人對戰) ---
+        // --- 進入下一回合邏輯 ---
+        window.startNextRound = async function() {
+            if (currentRound >= 3) {
+                // 結束並顯示積分榜
+                if (gameMode === 'MULTI' && myServerIndex === 0) {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    updateDoc(roomRef, { status: 'LEADERBOARD' });
+                } else if (gameMode === 'SINGLE') {
+                    setUIState('LEADERBOARD');
+                    renderLeaderboard();
+                }
+                return;
+            }
+            
+            currentRound++;
+            roundStarter = (roundStarter + 1) % 3; // 輪換莊家
+            
+            if (gameMode === 'SINGLE') {
+                deck = generateDeck();
+                players.forEach((p, idx) => {
+                    let h = deck.splice(0, idx === roundStarter ? 14 : 13);
+                    p.melds = [];
+                    if (idx === roundStarter) {
+                        const last = h.pop();
+                        p.hand = [...sortHand(h), last];
+                        if (idx === 0) drawnTileId = last.id;
+                    } else {
+                        p.hand = sortHand(h);
+                    }
+                });
+                tableDiscards = []; turn = roundStarter; phase = 'DISCARD'; lastDiscard = null; reactionOptions = null;
+                
+                showDiceScreen(Math.floor(Math.random()*6)+1, Math.floor(Math.random()*6)+1, players[roundStarter].name);
+                setTimeout(() => {
+                    if (gameMode === 'SINGLE') {
+                        setUIState('PLAYING');
+                        updateUI();
+                        processSinglePlayerLoop();
+                    }
+                }, 3000);
+            } 
+            else if (gameMode === 'MULTI' && myServerIndex === 0) {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                let newDeck = generateDeck();
+                let updatedPlayers = [...players];
+                updatedPlayers.forEach((p, idx) => {
+                    let h = newDeck.splice(0, idx === roundStarter ? 14 : 13);
+                    p.melds = [];
+                    if(idx === roundStarter) {
+                        const last = h.pop();
+                        p.hand = [...sortHand(h), last];
+                    } else {
+                        p.hand = sortHand(h);
+                    }
+                });
+                
+                await updateDoc(roomRef, {
+                    status: 'DICE_ROLL', 
+                    currentRound: currentRound,
+                    players: updatedPlayers, deck: newDeck, tableDiscards: [],
+                    turn: roundStarter, phase: 'DISCARD', lastDiscard: null, drawnTileId: updatedPlayers[roundStarter].hand[13].id, reactions: {},
+                    diceInfo: { d1: Math.floor(Math.random()*6)+1, d2: Math.floor(Math.random()*6)+1, starterName: updatedPlayers[roundStarter].name }
+                });
+                
+                setTimeout(() => { updateDoc(roomRef, { status: 'PLAYING' }); }, 3200);
+            }
+        };
+
+        // --- 顯示最終排行榜 ---
+        function renderLeaderboard() {
+            const sortedPlayers = [...players].sort((a, b) => b.score - a.score);
+            const medals = ['🥇', '🥈', '🥉'];
+            
+            document.getElementById('leaderboard-list').innerHTML = sortedPlayers.map((p, i) => `
+                <div class="flex items-center justify-between bg-black/40 px-6 py-4 rounded-xl border border-yellow-500/30 ${p.uid === myUid ? 'ring-2 ring-yellow-400 bg-yellow-900/40' : ''}">
+                    <div class="flex items-center gap-4">
+                        <span class="text-3xl">${medals[i]}</span>
+                        <span class="text-2xl font-bold ${p.uid === myUid ? 'text-yellow-300' : 'text-white'}">${p.name}</span>
+                    </div>
+                    <div class="text-3xl font-black text-emerald-300">${p.score} <span class="text-lg font-normal text-emerald-500">分</span></div>
+                </div>
+            `).join('');
+        }
+
+        // --- 單人遊戲邏輯 ---
         window.startSinglePlayer = function() {
             updatePlayerName();
             gameMode = 'SINGLE';
             myServerIndex = 0;
+            currentRound = 1;
             deck = generateDeck();
             
-            // 擲骰子決定誰是莊家 (0~2)
-            const starter = Math.floor(Math.random() * 3);
+            roundStarter = Math.floor(Math.random() * 3);
             const dice1 = Math.floor(Math.random() * 6) + 1;
             const dice2 = Math.floor(Math.random() * 6) + 1;
 
             players = [
-                { id: 0, uid: 'local', name: myName, hand: [], melds: [] },
-                { id: 1, uid: 'cpu1', name: '下家 (電腦 1)', hand: [], melds: [] },
-                { id: 2, uid: 'cpu2', name: '上家 (電腦 2)', hand: [], melds: [] }
+                { id: 0, uid: 'local', name: myName, hand: [], melds: [], score: 0 },
+                { id: 1, uid: 'cpu1', name: '下家 (電腦 1)', hand: [], melds: [], score: 0 },
+                { id: 2, uid: 'cpu2', name: '上家 (電腦 2)', hand: [], melds: [], score: 0 }
             ];
             
-            // 派牌 (莊家14張，其餘13張)
             players.forEach((p, idx) => {
-                let h = deck.splice(0, idx === starter ? 14 : 13);
-                if (idx === starter) {
+                let h = deck.splice(0, idx === roundStarter ? 14 : 13);
+                if (idx === roundStarter) {
                     const last = h.pop();
                     p.hand = [...sortHand(h), last];
-                    if (idx === 0) drawnTileId = last.id; // 如果自己是莊，標注入章
+                    if (idx === 0) drawnTileId = last.id; 
                 } else {
                     p.hand = sortHand(h);
                 }
             });
             
-            tableDiscards = []; 
-            turn = starter; 
-            phase = 'DISCARD'; 
-            lastDiscard = null; 
-            reactionOptions = null;
+            tableDiscards = []; turn = roundStarter; phase = 'DISCARD'; lastDiscard = null; reactionOptions = null;
             
-            // 播放骰子動畫，3 秒後正式進入遊戲
-            showDiceScreen(dice1, dice2, players[starter].name);
+            showDiceScreen(dice1, dice2, players[roundStarter].name);
             setTimeout(() => {
                 if (gameMode !== 'SINGLE') return;
                 setUIState('PLAYING');
@@ -532,7 +670,7 @@
             if (gameState !== 'PLAYING' || gameMode !== 'SINGLE') return;
 
             if (phase === 'DRAW') {
-                if (deck.length === 0) { triggerGameOver({ type: 'DRAW', msg: '流局！牌山已摸完。' }); return; }
+                if (deck.length === 0) { triggerGameOver({ type: 'DRAW', msg: '流局！(無人糊牌)' }); return; }
                 gameTimer = setTimeout(() => {
                     const drawn = deck.pop();
                     players[turn].hand.push(drawn);
@@ -540,7 +678,15 @@
                         drawnTileId = drawn.id;
                     } else {
                         if (checkWin(players[turn].hand)) {
-                            triggerGameOver({ playerIdx: turn, type: 'TSUMO', msg: `${players[turn].name} 自摸！`, hand: sortHand(players[turn].hand) });
+                            // 電腦自摸
+                            const winCalc = calculateWinScore(players[turn], players[turn].hand, true);
+                            players[turn].score += winCalc.score;
+                            triggerGameOver({ 
+                                playerIdx: turn, type: 'TSUMO', 
+                                msg: `${players[turn].name} 自摸！`, 
+                                hand: sortHand(players[turn].hand),
+                                patterns: winCalc.patterns, scoreAdded: winCalc.score
+                            });
                             return;
                         }
                         players[turn].hand = sortHand(players[turn].hand);
@@ -564,7 +710,6 @@
                     let canRon = checkWin([...pHand, tile]);
                     let canPong = pHand.filter(t => t.suit === tile.suit && t.rank === tile.rank).length >= 2;
                     let chowOptions = [];
-                    // 3 人遊戲：上家是 index 2, 我是 0
                     if (lastDiscard.playerIdx === 2) {
                         const s = tile.suit, r = tile.rank;
                         const has = (rank) => pHand.find(t => t.suit === s && t.rank === rank);
@@ -596,7 +741,7 @@
             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
             await setDoc(roomRef, {
                 roomId: code, host: myUid, status: 'LOBBY',
-                players: [{ uid: myUid, name: myName }]
+                players: [{ uid: myUid, name: myName, score: 0 }]
             });
             listenToRoom();
             setUIState('LOBBY');
@@ -615,7 +760,7 @@
             }
             const data = snap.data();
             if(!data.players.find(p => p.uid === myUid)){
-                data.players.push({ uid: myUid, name: myName });
+                data.players.push({ uid: myUid, name: myName, score: 0 });
                 await updateDoc(roomRef, { players: data.players });
             }
             roomCode = code;
@@ -643,8 +788,8 @@
                     }
                 } 
                 else if (data.status === 'DICE_ROLL') {
-                    // 同步設定基本變數，並顯示骰子畫面
                     gameMode = 'MULTI';
+                    currentRound = data.currentRound || 1;
                     players = data.players;
                     deck = data.deck;
                     tableDiscards = data.tableDiscards || [];
@@ -662,6 +807,7 @@
                 else if (data.status === 'PLAYING') {
                     if(gameState === 'LOBBY' || gameState === 'DICE_ROLL') setUIState('PLAYING');
                     gameMode = 'MULTI';
+                    currentRound = data.currentRound || 1;
                     
                     players = data.players; 
                     deck = data.deck;
@@ -677,7 +823,16 @@
                     processMultiplayerState();
                 }
                 else if (data.status === 'GAME_OVER') {
+                    currentRound = data.currentRound || 1;
+                    players = data.players;
+                    myServerIndex = players.findIndex(p => p.uid === myUid);
                     triggerGameOver(data.gameOverInfo);
+                }
+                else if (data.status === 'LEADERBOARD') {
+                    players = data.players;
+                    myServerIndex = players.findIndex(p => p.uid === myUid);
+                    setUIState('LEADERBOARD');
+                    renderLeaderboard();
                 }
             }, (error) => {
                 console.error("Room listener error", error);
@@ -690,21 +845,21 @@
             const snap = await getDoc(roomRef);
             let roomPlayers = snap.data().players;
             
-            // 如果不到 3 人，補齊電腦玩家
             while (roomPlayers.length < 3) {
-                roomPlayers.push({ uid: `cpu_${roomPlayers.length}`, name: `電腦 ${roomPlayers.length}` });
+                roomPlayers.push({ uid: `cpu_${roomPlayers.length}`, name: `電腦 ${roomPlayers.length}`, score: 0 });
             }
 
             let newDeck = generateDeck();
-            const starter = Math.floor(Math.random() * 3);
+            roundStarter = Math.floor(Math.random() * 3);
+            currentRound = 1;
+            
             const dice1 = Math.floor(Math.random() * 6) + 1;
             const dice2 = Math.floor(Math.random() * 6) + 1;
             
-            // 發牌
             roomPlayers.forEach((p, idx) => {
-                let h = newDeck.splice(0, idx === starter ? 14 : 13);
+                let h = newDeck.splice(0, idx === roundStarter ? 14 : 13);
                 p.melds = [];
-                if(idx === starter) {
+                if(idx === roundStarter) {
                     const last = h.pop();
                     p.hand = [...sortHand(h), last];
                 } else {
@@ -714,49 +869,54 @@
 
             await updateDoc(roomRef, {
                 status: 'DICE_ROLL', 
+                currentRound: currentRound,
                 players: roomPlayers, deck: newDeck, tableDiscards: [],
-                turn: starter, phase: 'DISCARD', lastDiscard: null, drawnTileId: roomPlayers[starter].hand[13].id, reactions: {},
-                diceInfo: { d1: dice1, d2: dice2, starterName: roomPlayers[starter].name }
+                turn: roundStarter, phase: 'DISCARD', lastDiscard: null, drawnTileId: roomPlayers[roundStarter].hand[13].id, reactions: {},
+                diceInfo: { d1: dice1, d2: dice2, starterName: roomPlayers[roundStarter].name }
             });
 
-            // 房主負責在 3.2 秒後切換至 PLAYING 狀態
             setTimeout(() => {
                 updateDoc(roomRef, { status: 'PLAYING' });
             }, 3200);
         };
 
-        // --- 多人遊戲狀態處理 (由各客戶端驅動) ---
+        // --- 多人遊戲狀態處理 ---
         function processMultiplayerState() {
             const isCPUTurn = players[turn].uid.startsWith('cpu');
-            // 真人玩家自己負責自己的回合；如果是電腦的回合，統一由房主 (index 0) 代為處理
             const iAmResponsible = (turn === myServerIndex) || (myServerIndex === 0 && isCPUTurn);
 
             if (phase === 'DRAW' && iAmResponsible) {
-                // 我的回合，或我(房主)負責幫電腦抽牌
                 setTimeout(async () => {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                     if (deck.length === 0) {
-                        await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: { type: 'DRAW', msg: '流局！' } }); return;
+                        await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: { type: 'DRAW', msg: '流局！(無人糊牌)' } }); return;
                     }
                     let newDeck = [...deck];
                     const drawn = newDeck.pop();
                     let newPlayers = [...players];
                     newPlayers[turn].hand.push(drawn);
                     
-                    // 檢查是否自摸，電腦會自動胡，真人手動按
                     if (isCPUTurn && checkWin(newPlayers[turn].hand)) {
-                         await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: { playerIdx: turn, type: 'TSUMO', msg: `${newPlayers[turn].name} 自摸！`, hand: sortHand(newPlayers[turn].hand) } }); return;
+                         const winCalc = calculateWinScore(newPlayers[turn], newPlayers[turn].hand, true);
+                         newPlayers[turn].score += winCalc.score;
+                         await updateDoc(roomRef, { 
+                             players: newPlayers, status: 'GAME_OVER', 
+                             gameOverInfo: { 
+                                 playerIdx: turn, type: 'TSUMO', 
+                                 msg: `${newPlayers[turn].name} 自摸！`, 
+                                 hand: sortHand(newPlayers[turn].hand),
+                                 patterns: winCalc.patterns, scoreAdded: winCalc.score
+                             } 
+                         }); return;
                     }
 
                     if (isCPUTurn) {
                         newPlayers[turn].hand = sortHand(newPlayers[turn].hand);
                     }
-
                     await updateDoc(roomRef, { deck: newDeck, players: newPlayers, phase: 'DISCARD', drawnTileId: drawn.id });
                 }, 500);
             }
             else if (phase === 'DISCARD' && iAmResponsible && isCPUTurn) {
-                // 房主代為執行電腦的出牌邏輯
                 setTimeout(async () => {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                     let newPlayers = [...players];
@@ -769,7 +929,6 @@
                 }, 1000);
             }
             else if (phase === 'REACTION') {
-                // 1. 真人玩家自己評估是否要表態 (吃碰胡/過)
                 if (lastDiscard.playerIdx !== myServerIndex && !players[myServerIndex].uid.startsWith('cpu')) {
                     if (!reactionsMap[myUid]) {
                         const pHand = players[myServerIndex].hand; const tile = lastDiscard.tile;
@@ -786,14 +945,12 @@
                         if (canRon || canPong || chowOptions.length > 0) {
                             reactionOptions = { canRon, canPong, chowOptions }; updateUI();
                         } else {
-                            // 無法反應，自動送出 Skip
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                             updateDoc(roomRef, { [`reactions.${myUid}`]: 'SKIP' });
                         }
                     }
                 } 
                 
-                // 2. 房主統一管理 AI 自動 Skip 以及檢查是否全員已 Skip (★ 修復2人連線卡住Bug)
                 if (myServerIndex === 0) { 
                     let allSkipped = true;
                     let needsUpdate = false;
@@ -801,24 +958,18 @@
 
                     for(let i=0; i<3; i++) {
                         if (i === lastDiscard.playerIdx) continue;
-                        
-                        // 幫 AI 送出 Skip
                         if (players[i].uid.startsWith('cpu') && !reactionsMap[players[i].uid]) {
                             reactionsMap[players[i].uid] = 'SKIP';
                             updates[`reactions.${players[i].uid}`] = 'SKIP';
                             needsUpdate = true;
                         }
-                        // 檢查該玩家是否尚未 Skip (含等待真人回應)
-                        if (reactionsMap[players[i].uid] !== 'SKIP') {
-                            allSkipped = false;
-                        }
+                        if (reactionsMap[players[i].uid] !== 'SKIP') allSkipped = false;
                     }
                     
                     if (needsUpdate) {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                         updateDoc(roomRef, updates);
                     } else if (allSkipped) {
-                        // 所有人皆已表態 SKIP，推進至下一位
                         const nextTurn = (lastDiscard.playerIdx + 1) % 3;
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                         updateDoc(roomRef, { phase: 'DRAW', turn: nextTurn, reactions: {} });
@@ -826,7 +977,6 @@
                 }
             }
         }
-
 
         // --- 玩家主動互動 (點擊牌 / 按鈕) ---
         window.handlePlayerDiscard = async function(index) {
@@ -867,6 +1017,7 @@
                     return true;
                 });
                 players[myServerIndex].melds.push({ type: 'PONG', tiles: [tile, tile, tile] });
+                players[myServerIndex].score += 10; // 碰牌加分
                 
                 reactionOptions = null; drawnTileId = null; turn = myServerIndex; phase = 'DISCARD';
                 if(gameMode === 'SINGLE') { updateUI(); }
@@ -880,6 +1031,7 @@
                 const idsToRemove = chowTiles.map(t => t.id);
                 players[myServerIndex].hand = players[myServerIndex].hand.filter(t => !idsToRemove.includes(t.id));
                 players[myServerIndex].melds.push({ type: 'CHOW', tiles: sortHand([...chowTiles, tile]) });
+                players[myServerIndex].score += 10; // 吃/上牌加分
                 
                 reactionOptions = null; drawnTileId = null; turn = myServerIndex; phase = 'DISCARD';
                 if(gameMode === 'SINGLE') { updateUI(); }
@@ -910,7 +1062,6 @@
         // --- 測驗系統 (化簡多項式) ---
         function triggerQuiz(type) {
             if(gameMode === 'MULTI') {
-                 // 廣播給其他玩家知道我正在解題
                  const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                  updateDoc(roomRef, { status: 'QUIZ', quizPlayer: myName });
             }
@@ -947,28 +1098,60 @@
             let info;
             
             if (isCorrect) {
-                const msg = quizWinType === 'TSUMO' ? `${players[myServerIndex].name} 自摸並化簡正確！` : `${players[myServerIndex].name} 食糊並化簡正確！`;
-                info = { playerIdx: myServerIndex, type: quizWinType, msg, hand: quizFinalHand };
+                const winCalc = calculateWinScore(players[myServerIndex], quizFinalHand, quizWinType === 'TSUMO');
+                players[myServerIndex].score += winCalc.score;
+                
+                info = { 
+                    playerIdx: myServerIndex, type: quizWinType, 
+                    msg: `${players[myServerIndex].name} ${quizWinType === 'TSUMO' ? '自摸' : '食糊'}並化簡正確！`, 
+                    hand: quizFinalHand, patterns: winCalc.patterns, scoreAdded: winCalc.score 
+                };
             } else {
-                info = { playerIdx: myServerIndex, type: 'ZHA_HU', msg: `${players[myServerIndex].name} 詐糊！多項式化簡錯誤！`, hand: quizFinalHand, correctAnswers: { c: quizTargetConst, x: quizTargetX, x2: quizTargetX2 } };
+                info = { 
+                    playerIdx: myServerIndex, type: 'ZHA_HU', 
+                    msg: `${players[myServerIndex].name} 詐糊！多項式化簡錯誤！`, 
+                    hand: quizFinalHand, correctAnswers: { c: quizTargetConst, x: quizTargetX, x2: quizTargetX2 } 
+                };
             }
 
             if(gameMode === 'SINGLE') {
                 triggerGameOver(info);
             } else {
                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
-                await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: info });
+                await updateDoc(roomRef, { players, status: 'GAME_OVER', gameOverInfo: info });
             }
         };
 
         function triggerGameOver(info) {
             setUIState('GAME_OVER');
             document.getElementById('go-title').innerText = info.msg;
+            
             const hCont = document.getElementById('go-hand-container');
             const zInfo = document.getElementById('go-zha-hu-info');
+            const pEl = document.getElementById('go-patterns');
+            const sEl = document.getElementById('go-score-display');
+            const nextBtns = document.getElementById('go-next-controls');
             
-            if (info.type === 'DRAW') { hCont.classList.add('hidden'); zInfo.classList.add('hidden'); }
-            else {
+            // 繪製控制按鈕 (下一回合/看排名)
+            let btnHTML = '';
+            if (gameMode === 'SINGLE' || (gameMode === 'MULTI' && myServerIndex === 0)) {
+                if (currentRound < 3) {
+                    btnHTML = `<button onclick="startNextRound()" class="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-full shadow-lg text-xl pulse-border">進入下一回合 (第 ${currentRound + 1} 回合)</button>`;
+                } else {
+                    btnHTML = `<button onclick="startNextRound()" class="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-full shadow-lg text-xl pulse-border">查看最終排名</button>`;
+                }
+            } else {
+                btnHTML = `<div class="text-emerald-200 italic font-bold">等待房主操作...</div>`;
+            }
+            nextBtns.innerHTML = btnHTML;
+
+            // 清理狀態
+            pEl.innerHTML = '';
+            sEl.classList.add('hidden');
+            
+            if (info.type === 'DRAW') { 
+                hCont.classList.add('hidden'); zInfo.classList.add('hidden'); 
+            } else {
                 hCont.classList.remove('hidden'); hCont.classList.add('flex');
                 document.getElementById('go-melds').innerHTML = players[info.playerIdx].melds.map(m => `<div class="flex gap-1 bg-black/30 p-1 rounded">${m.tiles.map(t => renderTileHTML(t)).join('')}</div>`).join('');
                 document.getElementById('go-hand').innerHTML = info.hand.map(t => renderTileHTML(t)).join('');
@@ -980,7 +1163,17 @@
                     if (info.correctAnswers.x !== 0) eq.push((info.correctAnswers.x > 0 && eq.length > 0 ? '+' : '') + `${info.correctAnswers.x}x`);
                     if (info.correctAnswers.c !== 0 || eq.length === 0) eq.push((info.correctAnswers.c > 0 && eq.length > 0 ? '+' : '') + `${info.correctAnswers.c}`);
                     document.getElementById('go-correct-ans').innerText = eq.join(' ');
-                } else zInfo.classList.add('hidden');
+                } else {
+                    zInfo.classList.add('hidden');
+                    // 顯示牌型和獲得分數
+                    if (info.patterns && info.patterns.length > 0) {
+                        pEl.innerHTML = info.patterns.join(' ｜ ');
+                    }
+                    if (info.scoreAdded > 0) {
+                        document.getElementById('go-score').innerText = info.scoreAdded;
+                        sEl.classList.remove('hidden');
+                    }
+                }
             }
         }
 
@@ -997,24 +1190,24 @@
         function updateUI() {
             if (gameState !== 'PLAYING') return;
 
+            document.getElementById('round-display').innerText = `第 ${currentRound} 回合 / 共 3 回合`;
             document.getElementById('deck-info').innerText = `牌山剩餘: ${deck.length} 隻`;
 
-            // 映射 3 人位子 (以我自己為中心 myServerIndex)
             const getRelativeIdx = (offset) => (myServerIndex + offset) % 3;
             const pMe = players[myServerIndex];
-            const pRight = players[getRelativeIdx(1)]; // 下家在右
-            const pLeft = players[getRelativeIdx(2)]; // 上家在左
+            const pRight = players[getRelativeIdx(1)]; 
+            const pLeft = players[getRelativeIdx(2)]; 
 
             // Left (上家)
             const cLeft = document.getElementById('cpu-left-container');
             cLeft.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(2) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
-            document.getElementById('cpu-left-name').innerText = `上家\n${pLeft.name}\n(剩 ${pLeft.hand.length})`;
+            document.getElementById('cpu-left-name').innerText = `上家\n${pLeft.name}\n(剩 ${pLeft.hand.length})\n積分: ${pLeft.score}`;
             document.getElementById('cpu-left-hand').innerHTML = pLeft.hand.map(() => renderHiddenTile()).join('');
 
             // Right (下家)
             const cRight = document.getElementById('cpu-right-container');
             cRight.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(1) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
-            document.getElementById('cpu-right-name').innerText = `下家\n${pRight.name}\n(剩 ${pRight.hand.length})`;
+            document.getElementById('cpu-right-name').innerText = `下家\n${pRight.name}\n(剩 ${pRight.hand.length})\n積分: ${pRight.score}`;
             document.getElementById('cpu-right-hand').innerHTML = pRight.hand.map(() => renderHiddenTile()).join('');
 
             // Discards
@@ -1025,7 +1218,7 @@
             // Player Zone (Me)
             const pZone = document.getElementById('player-container');
             pZone.className = `flex flex-col items-center p-2 pb-6 rounded-xl ${turn === myServerIndex ? 'bg-emerald-800/60 ring-2 ring-yellow-400' : ''}`;
-            document.getElementById('player-name-display').innerText = `${pMe.name} (你)`;
+            document.getElementById('player-name-display').innerText = `${pMe.name} (你) | 積分: ${pMe.score}`;
 
             // Melds
             const meldsEl = document.getElementById('player-melds');
