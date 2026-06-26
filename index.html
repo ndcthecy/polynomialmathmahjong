@@ -727,8 +727,12 @@
 
         // --- 多人遊戲狀態處理 (由各客戶端驅動) ---
         function processMultiplayerState() {
-            if (phase === 'DRAW' && turn === myServerIndex) {
-                // 我的回合，負責抽牌
+            const isCPUTurn = players[turn].uid.startsWith('cpu');
+            // 真人玩家自己負責自己的回合；如果是電腦的回合，統一由房主 (index 0) 代為處理
+            const iAmResponsible = (turn === myServerIndex) || (myServerIndex === 0 && isCPUTurn);
+
+            if (phase === 'DRAW' && iAmResponsible) {
+                // 我的回合，或我(房主)負責幫電腦抽牌
                 setTimeout(async () => {
                     const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                     if (deck.length === 0) {
@@ -740,31 +744,29 @@
                     newPlayers[turn].hand.push(drawn);
                     
                     // 檢查是否自摸，電腦會自動胡，真人手動按
-                    if (newPlayers[turn].uid.startsWith('cpu') && checkWin(newPlayers[turn].hand)) {
+                    if (isCPUTurn && checkWin(newPlayers[turn].hand)) {
                          await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: { playerIdx: turn, type: 'TSUMO', msg: `${newPlayers[turn].name} 自摸！`, hand: sortHand(newPlayers[turn].hand) } }); return;
                     }
 
-                    if (newPlayers[turn].uid.startsWith('cpu')) {
+                    if (isCPUTurn) {
                         newPlayers[turn].hand = sortHand(newPlayers[turn].hand);
                     }
 
                     await updateDoc(roomRef, { deck: newDeck, players: newPlayers, phase: 'DISCARD', drawnTileId: drawn.id });
                 }, 500);
             }
-            else if (phase === 'DISCARD' && turn === myServerIndex && players[myServerIndex].uid.startsWith('cpu')) {
-                // 如果自己是房主 (0號位)，且輪到電腦，由房主代為出牌
-                if (myServerIndex === 0) {
-                    setTimeout(async () => {
-                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
-                        let newPlayers = [...players];
-                        const h = newPlayers[turn].hand;
-                        const discarded = h.splice(Math.floor(Math.random() * h.length), 1)[0];
-                        newPlayers[turn].hand = sortHand(h);
-                        
-                        let newDiscards = [...tableDiscards, discarded];
-                        await updateDoc(roomRef, { players: newPlayers, tableDiscards: newDiscards, phase: 'REACTION', lastDiscard: { playerIdx: turn, tile: discarded }, reactions: {} });
-                    }, 1000);
-                }
+            else if (phase === 'DISCARD' && iAmResponsible && isCPUTurn) {
+                // 房主代為執行電腦的出牌邏輯
+                setTimeout(async () => {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    let newPlayers = [...players];
+                    const h = newPlayers[turn].hand;
+                    const discarded = h.splice(Math.floor(Math.random() * h.length), 1)[0];
+                    newPlayers[turn].hand = sortHand(h);
+                    
+                    let newDiscards = [...tableDiscards, discarded];
+                    await updateDoc(roomRef, { players: newPlayers, tableDiscards: newDiscards, phase: 'REACTION', lastDiscard: { playerIdx: turn, tile: discarded }, reactions: {} });
+                }, 1000);
             }
             else if (phase === 'REACTION') {
                 // 1. 真人玩家自己評估是否要表態 (吃碰胡/過)
