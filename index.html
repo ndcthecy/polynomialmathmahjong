@@ -54,7 +54,6 @@
                 <span class="text-red-300 font-bold">x²項 (-4x² 至 4x²)</span><br/>
             </p>
             
-            <!-- 新增：玩家名稱輸入框 -->
             <div class="mb-6 w-full">
                 <input type="text" id="player-name-input" maxlength="12" class="w-full text-center text-2xl font-bold p-3 text-gray-900 rounded bg-emerald-50 focus:bg-white focus:outline-none focus:ring-4 ring-yellow-400" placeholder="請輸入你的暱稱">
             </div>
@@ -111,7 +110,21 @@
         </div>
     </div>
 
-    <!-- 遊戲畫面 (3 人配置：左下家、右上家) -->
+    <!-- 擲骰子畫面 -->
+    <div id="screen-dice" class="flex-1 flex flex-col items-center justify-center hidden">
+        <div class="bg-emerald-800 p-12 rounded-2xl border-4 border-yellow-400 text-center shadow-2xl flex flex-col items-center">
+            <h2 class="text-4xl font-black mb-8 text-yellow-300 tracking-widest">擲骰子決定莊家</h2>
+            <div class="flex gap-8 justify-center mb-8">
+                <div id="dice-1" class="w-24 h-24 bg-white text-red-600 rounded-2xl shadow-inner flex items-center justify-center text-7xl font-black">⚀</div>
+                <div id="dice-2" class="w-24 h-24 bg-white text-red-600 rounded-2xl shadow-inner flex items-center justify-center text-7xl font-black">⚀</div>
+            </div>
+            <div id="dice-result" class="text-3xl font-bold text-white h-12 opacity-0 transition-opacity duration-500 bg-black/40 px-6 py-2 rounded-full flex items-center">
+                <!-- 將由 莊家 先手 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 遊戲畫面 (3 人配置：左上家、右下家) -->
     <div id="screen-game" class="flex-1 flex flex-col justify-between p-2 hidden">
         
         <!-- Top Padding (用來代替原本對家的空間) -->
@@ -280,7 +293,7 @@
         const RANKS = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
 
         // 系統狀態
-        let gameState = 'MENU'; // MENU, LOBBY, PLAYING, QUIZ, GAME_OVER
+        let gameState = 'MENU'; // MENU, LOBBY, DICE_ROLL, PLAYING, QUIZ, GAME_OVER
         let gameMode = 'SINGLE'; // SINGLE, MULTI
         
         // 遊戲狀態 (單機/雲端共用)
@@ -295,6 +308,7 @@
         let reactionOptions = null; // Local options
 
         let gameTimer = null;
+        let diceInterval = null;
         let myServerIndex = 0; // 在 players 陣列中的位置
 
         // Firebase
@@ -306,27 +320,15 @@
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
         // --- ！！！外部部署 (如 GitHub Pages) 的 Firebase 設定！！！ ---
-        // 若你在外部網頁執行，請在此處填入你的 Firebase 設定 (從 Firebase Console 獲取)
-        // 需啟用: Firestore Database (設定讀寫規則) 及 Authentication (匿名登入)
         const FIREBASE_CONFIG_CUSTOM = {
             apiKey: "AIzaSyAyYLelSfLrhIZCCJBDJCPnBgrgIcooZlQ",
-            authDomain: "polynomialmathmahjong.firebaseapp.com",
-            projectId: "polynomialmathmahjong",
-            storageBucket: "polynomialmathmahjong.firebasestorage.app",
-            messagingSenderId: "805558581882",
-            appId: "1:805558581882:web:481d0344e86f067845d9c3",
-            measurementId: "G-F029DSWRGJ"
+  authDomain: "polynomialmathmahjong.firebaseapp.com",
+  projectId: "polynomialmathmahjong",
+  storageBucket: "polynomialmathmahjong.firebasestorage.app",
+  messagingSenderId: "805558581882",
+  appId: "1:805558581882:web:481d0344e86f067845d9c3",
+  measurementId: "G-F029DSWRGJ"
         }; 
-        /* 範例格式：
-        const FIREBASE_CONFIG_CUSTOM = {
-            apiKey: "AIzaSy...",
-            authDomain: "your-project.firebaseapp.com",
-            projectId: "your-project",
-            storageBucket: "your-project.appspot.com",
-            messagingSenderId: "123456789",
-            appId: "1:123456789:web:abcdef"
-        };
-        */
 
         // 測驗系統
         let quizTargetConst = 0, quizTargetX = 0, quizTargetX2 = 0, quizWinType = '', quizFinalHand = [];
@@ -439,7 +441,8 @@
             clearTimeout(gameTimer);
             document.getElementById('screen-menu').classList.toggle('hidden', state !== 'MENU');
             document.getElementById('screen-lobby').classList.toggle('hidden', state !== 'LOBBY');
-            document.getElementById('screen-game').classList.toggle('hidden', state === 'MENU' || state === 'LOBBY');
+            document.getElementById('screen-dice').classList.toggle('hidden', state !== 'DICE_ROLL');
+            document.getElementById('screen-game').classList.toggle('hidden', state !== 'PLAYING');
             document.getElementById('modal-quiz').classList.toggle('hidden', state !== 'QUIZ');
             document.getElementById('modal-gameover').classList.toggle('hidden', state !== 'GAME_OVER');
             document.getElementById('btn-quit').classList.toggle('hidden', state === 'MENU');
@@ -451,26 +454,78 @@
             setUIState('MENU');
         };
 
+        // --- 擲骰子動畫邏輯 ---
+        function showDiceScreen(d1, d2, starterName) {
+            setUIState('DICE_ROLL');
+            const d1El = document.getElementById('dice-1');
+            const d2El = document.getElementById('dice-2');
+            const resEl = document.getElementById('dice-result');
+
+            resEl.classList.add('opacity-0');
+            clearInterval(diceInterval);
+
+            // 快速切換數字動畫
+            diceInterval = setInterval(() => {
+                d1El.innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][Math.floor(Math.random()*6)];
+                d2El.innerText = ['⚀','⚁','⚂','⚃','⚄','⚅'][Math.floor(Math.random()*6)];
+            }, 80);
+
+            // 1.5 秒後定格並顯示結果
+            setTimeout(() => {
+                if(gameState !== 'DICE_ROLL') return; 
+                clearInterval(diceInterval);
+                const faces = ['⚀','⚁','⚂','⚃','⚄','⚅'];
+                d1El.innerText = faces[d1 - 1];
+                d2El.innerText = faces[d2 - 1];
+                resEl.innerText = `莊家為： ${starterName} 先手`;
+                resEl.classList.remove('opacity-0');
+            }, 1500);
+        }
+
         // --- 單人遊戲邏輯 (3 人對戰) ---
         window.startSinglePlayer = function() {
-            updatePlayerName(); // 更新玩家名稱
+            updatePlayerName();
             gameMode = 'SINGLE';
             myServerIndex = 0;
             deck = generateDeck();
             
-            const p0Hand = [...sortHand(deck.splice(0, 13)), deck.splice(0, 1)[0]]; // 14張
+            // 擲骰子決定誰是莊家 (0~2)
+            const starter = Math.floor(Math.random() * 3);
+            const dice1 = Math.floor(Math.random() * 6) + 1;
+            const dice2 = Math.floor(Math.random() * 6) + 1;
+
             players = [
-                { id: 0, uid: 'local', name: myName, hand: p0Hand, melds: [] },
-                { id: 1, uid: 'cpu1', name: '下家 (電腦 1)', hand: sortHand(deck.splice(0, 13)), melds: [] },
-                { id: 2, uid: 'cpu2', name: '上家 (電腦 2)', hand: sortHand(deck.splice(0, 13)), melds: [] }
+                { id: 0, uid: 'local', name: myName, hand: [], melds: [] },
+                { id: 1, uid: 'cpu1', name: '下家 (電腦 1)', hand: [], melds: [] },
+                { id: 2, uid: 'cpu2', name: '上家 (電腦 2)', hand: [], melds: [] }
             ];
             
-            tableDiscards = []; turn = 0; phase = 'DISCARD'; drawnTileId = p0Hand[13].id;
-            lastDiscard = null; reactionOptions = null;
+            // 派牌 (莊家14張，其餘13張)
+            players.forEach((p, idx) => {
+                let h = deck.splice(0, idx === starter ? 14 : 13);
+                if (idx === starter) {
+                    const last = h.pop();
+                    p.hand = [...sortHand(h), last];
+                    if (idx === 0) drawnTileId = last.id; // 如果自己是莊，標注入章
+                } else {
+                    p.hand = sortHand(h);
+                }
+            });
             
-            setUIState('PLAYING');
-            updateUI();
-            processSinglePlayerLoop();
+            tableDiscards = []; 
+            turn = starter; 
+            phase = 'DISCARD'; 
+            lastDiscard = null; 
+            reactionOptions = null;
+            
+            // 播放骰子動畫，3 秒後正式進入遊戲
+            showDiceScreen(dice1, dice2, players[starter].name);
+            setTimeout(() => {
+                if (gameMode !== 'SINGLE') return;
+                setUIState('PLAYING');
+                updateUI();
+                processSinglePlayerLoop();
+            }, 3000);
         };
 
         function processSinglePlayerLoop() {
@@ -534,7 +589,7 @@
 
         window.createRoom = async function() {
             if (!db || !myUid) return;
-            updatePlayerName(); // 更新玩家名稱
+            updatePlayerName(); 
             const code = Math.floor(100000 + Math.random() * 900000).toString();
             roomCode = code;
             
@@ -549,7 +604,7 @@
 
         window.joinRoom = async function() {
             if (!db || !myUid) return;
-            updatePlayerName(); // 更新玩家名稱
+            updatePlayerName(); 
             const code = document.getElementById('input-room-code').value.toUpperCase();
             if(code.length !== 6) return;
             
@@ -587,11 +642,28 @@
                         document.getElementById('lobby-guest-msg').classList.remove('hidden');
                     }
                 } 
+                else if (data.status === 'DICE_ROLL') {
+                    // 同步設定基本變數，並顯示骰子畫面
+                    gameMode = 'MULTI';
+                    players = data.players;
+                    deck = data.deck;
+                    tableDiscards = data.tableDiscards || [];
+                    turn = data.turn;
+                    phase = data.phase;
+                    lastDiscard = data.lastDiscard;
+                    drawnTileId = data.drawnTileId;
+                    reactionsMap = data.reactions || {};
+                    myServerIndex = players.findIndex(p => p.uid === myUid);
+                    
+                    if (gameState !== 'DICE_ROLL') {
+                        showDiceScreen(data.diceInfo.d1, data.diceInfo.d2, data.diceInfo.starterName);
+                    }
+                }
                 else if (data.status === 'PLAYING') {
-                    if(gameState === 'LOBBY') setUIState('PLAYING');
+                    if(gameState === 'LOBBY' || gameState === 'DICE_ROLL') setUIState('PLAYING');
                     gameMode = 'MULTI';
                     
-                    players = data.players; // 包含手牌等
+                    players = data.players; 
                     deck = data.deck;
                     tableDiscards = data.tableDiscards || [];
                     turn = data.turn;
@@ -624,12 +696,15 @@
             }
 
             let newDeck = generateDeck();
+            const starter = Math.floor(Math.random() * 3);
+            const dice1 = Math.floor(Math.random() * 6) + 1;
+            const dice2 = Math.floor(Math.random() * 6) + 1;
             
             // 發牌
             roomPlayers.forEach((p, idx) => {
-                let h = newDeck.splice(0, idx === 0 ? 14 : 13);
+                let h = newDeck.splice(0, idx === starter ? 14 : 13);
                 p.melds = [];
-                if(idx === 0) {
+                if(idx === starter) {
                     const last = h.pop();
                     p.hand = [...sortHand(h), last];
                 } else {
@@ -638,9 +713,16 @@
             });
 
             await updateDoc(roomRef, {
-                status: 'PLAYING', players: roomPlayers, deck: newDeck, tableDiscards: [],
-                turn: 0, phase: 'DISCARD', lastDiscard: null, drawnTileId: roomPlayers[0].hand[13].id, reactions: {}
+                status: 'DICE_ROLL', 
+                players: roomPlayers, deck: newDeck, tableDiscards: [],
+                turn: starter, phase: 'DISCARD', lastDiscard: null, drawnTileId: roomPlayers[starter].hand[13].id, reactions: {},
+                diceInfo: { d1: dice1, d2: dice2, starterName: roomPlayers[starter].name }
             });
+
+            // 房主負責在 3.2 秒後切換至 PLAYING 狀態
+            setTimeout(() => {
+                updateDoc(roomRef, { status: 'PLAYING' });
+            }, 3200);
         };
 
         // --- 多人遊戲狀態處理 (由各客戶端驅動) ---
@@ -670,8 +752,7 @@
                 }, 500);
             }
             else if (phase === 'DISCARD' && turn === myServerIndex && players[myServerIndex].uid.startsWith('cpu')) {
-                // (如果自己變成了房主，且輪到電腦，由房主代為出牌) - 但這裡簡化，直接讓所有人判斷，只要是我負責運算這個 CPU 即可。
-                // 為了防止重複寫入，只有房主 (index 0) 負責電腦的邏輯
+                // 如果自己是房主 (0號位)，且輪到電腦，由房主代為出牌
                 if (myServerIndex === 0) {
                     setTimeout(async () => {
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
@@ -686,14 +767,14 @@
                 }
             }
             else if (phase === 'REACTION') {
+                // 1. 真人玩家自己評估是否要表態 (吃碰胡/過)
                 if (lastDiscard.playerIdx !== myServerIndex && !players[myServerIndex].uid.startsWith('cpu')) {
-                    // 判斷真人是否可以反應
                     if (!reactionsMap[myUid]) {
                         const pHand = players[myServerIndex].hand; const tile = lastDiscard.tile;
                         let canRon = checkWin([...pHand, tile]);
                         let canPong = pHand.filter(t => t.suit === tile.suit && t.rank === tile.rank).length >= 2;
                         let chowOptions = [];
-                        if (lastDiscard.playerIdx === (myServerIndex + 2) % 3) { // 上家 (Right)
+                        if (lastDiscard.playerIdx === (myServerIndex + 2) % 3) { // 上家 (Left)
                             const s = tile.suit, r = tile.rank;
                             const has = (rank) => pHand.find(t => t.suit === s && t.rank === rank);
                             if (has(r-2) && has(r-1)) chowOptions.push([has(r-2), has(r-1)]);
@@ -703,27 +784,39 @@
                         if (canRon || canPong || chowOptions.length > 0) {
                             reactionOptions = { canRon, canPong, chowOptions }; updateUI();
                         } else {
-                            // 無法反應，自動 Skip
+                            // 無法反應，自動送出 Skip
                             const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                             updateDoc(roomRef, { [`reactions.${myUid}`]: 'SKIP' });
                         }
                     }
                 } 
-                else if (myServerIndex === 0) { 
-                    // 房主負責幫電腦 Skip 以及推進回合
+                
+                // 2. 房主統一管理 AI 自動 Skip 以及檢查是否全員已 Skip (★ 修復2人連線卡住Bug)
+                if (myServerIndex === 0) { 
                     let allSkipped = true;
+                    let needsUpdate = false;
+                    let updates = {};
+
                     for(let i=0; i<3; i++) {
                         if (i === lastDiscard.playerIdx) continue;
+                        
+                        // 幫 AI 送出 Skip
                         if (players[i].uid.startsWith('cpu') && !reactionsMap[players[i].uid]) {
-                            // 電腦簡單邏輯：不吃碰胡，直接 SKIP
                             reactionsMap[players[i].uid] = 'SKIP';
-                            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
-                            updateDoc(roomRef, { [`reactions.${players[i].uid}`]: 'SKIP' });
+                            updates[`reactions.${players[i].uid}`] = 'SKIP';
+                            needsUpdate = true;
                         }
-                        if (reactionsMap[players[i].uid] !== 'SKIP') allSkipped = false;
+                        // 檢查該玩家是否尚未 Skip (含等待真人回應)
+                        if (reactionsMap[players[i].uid] !== 'SKIP') {
+                            allSkipped = false;
+                        }
                     }
-                    if (allSkipped) {
-                        // 推進至下一位
+                    
+                    if (needsUpdate) {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                        updateDoc(roomRef, updates);
+                    } else if (allSkipped) {
+                        // 所有人皆已表態 SKIP，推進至下一位
                         const nextTurn = (lastDiscard.playerIdx + 1) % 3;
                         const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
                         updateDoc(roomRef, { phase: 'DRAW', turn: nextTurn, reactions: {} });
