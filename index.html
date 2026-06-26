@@ -1,0 +1,928 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>多項式麻雀遊戲</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* 隱藏預設的數字輸入框箭頭 */
+        input[type="number"]::-webkit-inner-spin-button,
+        input[type="number"]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type="number"] {
+            -moz-appearance: textfield;
+        }
+        .tile-hover:hover {
+            transform: translateY(-8px);
+            transition: transform 0.2s;
+        }
+        .pulse-border {
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(250, 204, 21, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0); }
+        }
+    </style>
+</head>
+<body class="bg-emerald-900 text-white font-sans min-h-screen flex flex-col overflow-y-auto select-none">
+
+    <!-- 頂部控制列 -->
+    <div class="flex justify-between items-center p-4 bg-emerald-950 shadow-md z-10 h-16">
+        <h1 class="text-2xl font-bold text-yellow-400 tracking-wider">多項式麻雀遊戲</h1>
+        <div class="flex gap-4">
+            <div id="connection-status" class="flex items-center text-sm font-bold text-gray-400">
+                連線中...
+            </div>
+            <button onclick="toggleRules(true)" class="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded text-sm font-bold">遊戲教學 / 規則</button>
+            <button id="btn-quit" onclick="quitGame()" class="px-4 py-2 bg-red-600 hover:bg-red-700 rounded text-sm font-bold hidden">放棄遊戲</button>
+        </div>
+    </div>
+
+    <!-- 主選單畫面 -->
+    <div id="screen-menu" class="flex-1 flex flex-col items-center justify-center">
+        <div class="bg-emerald-800 p-8 rounded-xl shadow-2xl max-w-lg text-center border-4 border-emerald-700 w-full">
+            <h2 class="text-3xl font-bold mb-6 text-white">數學十三隻 (3人對戰)</h2>
+            <p class="mb-8 text-emerald-100 leading-relaxed text-lg">
+                這款麻雀遊戲將傳統的萬、索、筒替換為：<br/>
+                <span class="text-blue-300 font-bold">常數項 (-4 至 4)</span><br/>
+                <span class="text-green-300 font-bold">x項 (-4x 至 4x)</span><br/>
+                <span class="text-red-300 font-bold">x²項 (-4x² 至 4x²)</span><br/>
+            </p>
+            
+            <div class="flex flex-col gap-4">
+                <button onclick="startSinglePlayer()" class="px-8 py-3 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg shadow border border-gray-500 text-xl transition-transform hover:scale-105">
+                    單人遊戲 (與電腦對戰)
+                </button>
+                <div class="h-px bg-emerald-600 my-2"></div>
+                <button id="btn-create-room" onclick="createRoom()" disabled class="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-lg text-xl transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    開創多人房間
+                </button>
+                <button id="btn-join-room-modal" onclick="showJoinModal()" disabled class="px-8 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg shadow-lg text-xl transition-transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed">
+                    加入房間
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 加入房間 Modal -->
+    <div id="modal-join-room" class="absolute inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+        <div class="bg-emerald-800 p-8 rounded-xl border-2 border-emerald-500 text-center shadow-2xl">
+            <h3 class="text-2xl font-bold mb-4">輸入 6 位數房間代碼</h3>
+            <input type="text" id="input-room-code" maxlength="6" class="w-48 text-center text-3xl font-bold p-2 text-gray-900 rounded mb-6 uppercase" placeholder="123456">
+            <div class="flex gap-4 justify-center">
+                <button onclick="hideJoinModal()" class="px-6 py-2 bg-gray-500 hover:bg-gray-400 rounded font-bold">取消</button>
+                <button onclick="joinRoom()" class="px-6 py-2 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 rounded font-bold">確認加入</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 多人遊戲大廳 -->
+    <div id="screen-lobby" class="flex-1 flex flex-col items-center justify-center hidden">
+        <div class="bg-emerald-800 p-8 rounded-xl shadow-2xl max-w-md w-full text-center border-4 border-emerald-600">
+            <h2 class="text-2xl font-bold mb-2">多人連線大廳</h2>
+            <div class="bg-emerald-950 text-yellow-400 font-mono text-5xl p-4 rounded-lg tracking-widest font-black mb-6 shadow-inner">
+                <span id="lobby-room-code">------</span>
+            </div>
+            
+            <h3 class="text-xl font-bold text-emerald-300 mb-4 border-b border-emerald-600 pb-2">玩家列表 (<span id="lobby-player-count">1</span>/3)</h3>
+            <ul id="lobby-players" class="text-left text-lg space-y-2 mb-8 bg-emerald-900/50 p-4 rounded min-h-[100px]">
+                <!-- 玩家名單 -->
+            </ul>
+
+            <div id="lobby-host-controls" class="hidden">
+                <button onclick="startMultiplayerGame()" class="w-full px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-lg shadow-lg text-xl pulse-border transition-transform hover:scale-105">
+                    開始遊戲
+                </button>
+            </div>
+            <div id="lobby-guest-msg" class="text-emerald-200 italic hidden">
+                等待房主開始遊戲...
+            </div>
+            <button onclick="quitGame()" class="mt-4 text-gray-400 hover:text-white underline">離開房間</button>
+        </div>
+    </div>
+
+    <!-- 遊戲畫面 (3 人配置：左下家、右上家) -->
+    <div id="screen-game" class="flex-1 flex flex-col justify-between p-2 hidden">
+        
+        <!-- Top Padding (用來代替原本對家的空間) -->
+        <div class="h-12 flex justify-center items-center">
+            <div id="multiplayer-status-msg" class="text-yellow-300 font-bold bg-black/50 px-4 py-1 rounded hidden">
+                等待其他玩家動作...
+            </div>
+        </div>
+
+        <div class="flex flex-1 items-center justify-between px-4">
+            <!-- Left: 下家 (Player 1) -->
+            <div id="cpu1-container" class="flex flex-col items-center p-2 rounded-lg w-32">
+                <div id="cpu1-name" class="mb-2 text-sm font-bold text-yellow-200">下家</div>
+                <div id="cpu1-hand" class="flex flex-col min-h-[510px] justify-center"></div>
+            </div>
+
+            <!-- Center: 桌面棄牌區 -->
+            <div class="flex-1 flex flex-col items-center justify-center px-4">
+                <div class="bg-emerald-800/80 p-4 rounded-2xl border border-emerald-700 flex flex-col items-center shadow-inner min-w-[350px] min-h-[150px]">
+                    <div id="deck-info" class="text-emerald-300 mb-2 font-bold tracking-widest">牌山剩餘: -- 隻</div>
+                    <div id="table-discards" class="flex flex-wrap justify-center max-w-2xl gap-1">
+                        <!-- 棄牌將在這裡生成 -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right: 上家 (Player 2) -->
+            <div id="cpu2-container" class="flex flex-col items-center p-2 rounded-lg w-32">
+                <div id="cpu2-name" class="mb-2 text-sm font-bold text-yellow-200">上家</div>
+                <div id="cpu2-hand" class="flex flex-col min-h-[510px] justify-center"></div>
+            </div>
+        </div>
+
+        <!-- Bottom: 玩家區 -->
+        <div id="player-container" class="flex flex-col items-center p-2 pb-6 rounded-xl">
+            <!-- 操作控制列 -->
+            <div class="flex items-center justify-between w-full max-w-4xl mb-2 h-14">
+                <div class="flex-1 flex justify-start pl-4">
+                    <button id="btn-hu" onclick="handleHuClick()" class="px-8 py-2 bg-red-600 hover:bg-red-500 rounded-full text-white font-bold text-2xl shadow-lg border-2 border-red-300 transition-transform hover:scale-105 active:scale-95">
+                        糊牌
+                    </button>
+                </div>
+                <div id="action-center" class="flex-1 flex justify-center">
+                    <!-- 提示或吃碰按鈕 -->
+                </div>
+                <div class="flex-1"></div>
+            </div>
+
+            <div class="flex items-end gap-6">
+                <!-- 玩家的吃碰區 -->
+                <div id="player-melds" class="flex gap-4 border-r-2 border-emerald-700 pr-4 hidden"></div>
+                <!-- 玩家手牌區 -->
+                <div id="player-hand" class="flex gap-1"></div>
+            </div>
+            <div id="player-name-display" class="mt-2 font-bold text-white text-lg">你 (玩家)</div>
+        </div>
+    </div>
+
+    <!-- 測驗彈窗 (糊牌後的計算) -->
+    <div id="modal-quiz" class="absolute inset-0 bg-black/90 flex flex-col items-center justify-center z-40 hidden">
+        <div class="bg-emerald-800 p-8 rounded-2xl border-4 border-yellow-400 max-w-4xl w-full text-center shadow-2xl">
+            <h2 class="text-4xl font-black mb-2 text-yellow-400 tracking-wider">糊牌確認：多項式化簡</h2>
+            <p class="text-emerald-100 mb-6 text-lg">請將你手牌中的所有項合併同類項，若回答錯誤將視為<span class="text-red-400 font-bold">「詐糊」</span>！</p>
+            
+            <div class="bg-black/40 p-4 rounded-xl mb-8 flex justify-center gap-4 flex-wrap">
+                <div id="quiz-melds" class="flex gap-2 border-r-2 border-emerald-600 pr-4"></div>
+                <div id="quiz-hand" class="flex gap-1"></div>
+            </div>
+
+            <div class="flex items-center justify-center gap-4 text-2xl font-bold mb-8">
+                <div class="flex flex-col items-center">
+                    <input id="quiz-x2" type="number" class="w-24 h-16 text-center text-red-700 rounded shadow-inner text-3xl font-black bg-gray-100 focus:bg-white focus:outline-none focus:ring-4 ring-yellow-400" placeholder="0">
+                    <span class="text-red-300 mt-2">x² 係數</span>
+                </div>
+                <span class="text-4xl text-white">+</span>
+                <div class="flex flex-col items-center">
+                    <input id="quiz-x" type="number" class="w-24 h-16 text-center text-green-700 rounded shadow-inner text-3xl font-black bg-gray-100 focus:bg-white focus:outline-none focus:ring-4 ring-yellow-400" placeholder="0">
+                    <span class="text-green-300 mt-2">x 係數</span>
+                </div>
+                <span class="text-4xl text-white">+</span>
+                <div class="flex flex-col items-center">
+                    <input id="quiz-const" type="number" class="w-24 h-16 text-center text-blue-700 rounded shadow-inner text-3xl font-black bg-gray-100 focus:bg-white focus:outline-none focus:ring-4 ring-yellow-400" placeholder="0">
+                    <span class="text-blue-300 mt-2">常數項</span>
+                </div>
+            </div>
+
+            <button onclick="submitQuiz()" class="px-10 py-4 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-black rounded-full shadow-lg text-2xl transition-transform hover:scale-105">
+                確認化簡結果
+            </button>
+        </div>
+    </div>
+
+    <!-- 遊戲結束視窗 -->
+    <div id="modal-gameover" class="absolute inset-0 bg-black/80 flex items-center justify-center z-50 hidden">
+        <div class="bg-emerald-100 p-8 rounded-2xl max-w-2xl text-center text-gray-900 border-8 border-yellow-500 flex flex-col items-center">
+            <h2 id="go-title" class="text-5xl font-black mb-4 text-red-600 drop-shadow-sm"></h2>
+            
+            <div id="go-hand-container" class="hidden flex-col items-center w-full">
+                <p class="mb-4 text-xl font-bold text-emerald-900">勝利牌型：</p>
+                <div class="flex justify-center flex-wrap gap-2 mb-8 bg-emerald-800 p-4 rounded-lg w-full">
+                   <div id="go-melds" class="flex gap-1 mr-4 border-r-2 border-emerald-600 pr-4"></div>
+                   <div id="go-hand" class="flex gap-1"></div>
+                </div>
+            </div>
+
+            <div id="go-zha-hu-info" class="hidden mb-8 text-xl font-bold text-red-700 bg-red-100 p-4 rounded border-2 border-red-300">
+                正確答案應該是：<br>
+                <span id="go-correct-ans" class="text-2xl font-black"></span>
+            </div>
+
+            <button onclick="quitGame()" class="px-8 py-3 bg-yellow-500 hover:bg-yellow-400 text-yellow-900 font-bold rounded-full shadow-lg text-xl mt-4">
+                返回主選單
+            </button>
+        </div>
+    </div>
+
+    <!-- 未成形提示 Popup -->
+    <div id="popup-not-formed" class="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-red-900/95 text-white px-12 py-6 rounded-2xl shadow-2xl border-4 border-red-500 z-50 hidden items-center justify-center transition-opacity">
+        <span class="text-4xl font-black tracking-widest text-red-100">手牌未成形</span>
+    </div>
+
+    <!-- 規則說明視窗 -->
+    <div id="modal-rules" class="absolute inset-0 bg-black/60 flex items-center justify-center z-50 p-4 hidden">
+        <div class="bg-white text-gray-800 p-8 rounded-xl max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-emerald-800">多項式麻雀遊戲 規則</h2>
+                <button onclick="toggleRules(false)" class="text-gray-500 hover:text-red-500 font-bold text-xl">✕</button>
+            </div>
+            <div class="space-y-4 text-lg">
+                <p>這是一個以香港麻雀為基礎簡化的 3 人教育遊戲。沒有番子，也沒有對家。</p>
+                <div class="bg-emerald-50 p-4 rounded border border-emerald-200">
+                    <h3 class="font-bold text-emerald-700 border-b pb-2 mb-2">花色對應</h3>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li><strong>萬子</strong> 變成了 <span class="text-blue-600 font-bold">常數項</span>: -4 至 4</li>
+                        <li><strong>索子</strong> 變成了 <span class="text-green-600 font-bold">x 項</span>: -4x 至 4x</li>
+                        <li><strong>筒子</strong> 變成了 <span class="text-red-600 font-bold">x² 項</span>: -4x² 至 4x²</li>
+                    </ul>
+                </div>
+                <div class="bg-emerald-50 p-4 rounded border border-emerald-200">
+                    <h3 class="font-bold text-emerald-700 border-b pb-2 mb-2">組合牌型 (同類項才能組合)</h3>
+                    <ul class="list-disc pl-5 space-y-2">
+                        <li><strong>順子 (吃)</strong>：三個連續系數的同類項。例如：<code class="bg-white px-2 py-1 rounded shadow-sm">-2x, -1x, 0x</code></li>
+                        <li><strong>刻子 (碰)</strong>：三張完全相同的牌。例如：<code class="bg-white px-2 py-1 rounded shadow-sm">3x, 3x, 3x</code></li>
+                        <li><strong>眼 (將)</strong>：兩張完全相同的牌。</li>
+                    </ul>
+                </div>
+                <p class="font-bold text-red-600 mt-4">勝出條件：集齊 4組 (順子/刻子) 加上 1對眼 (共 14 張牌)。</p>
+                <p class="font-bold text-yellow-600 bg-yellow-100 p-2 border border-yellow-300 rounded">糊牌結算：糊牌後必須正確算出所有牌加總起來的化簡多項式，答錯即視為詐糊並輸掉遊戲。</p>
+            </div>
+            <button onclick="toggleRules(false)" class="mt-8 w-full py-3 bg-emerald-600 text-white rounded font-bold hover:bg-emerald-700">我明白了，返回遊戲</button>
+        </div>
+    </div>
+
+    <!-- Firebase 腳本及核心邏輯 -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- 全域變數與常數 ---
+        const SUITS = [
+            { id: 0, name: '常數', suffix: '', color: 'text-blue-700' },
+            { id: 1, name: 'x項', suffix: 'x', color: 'text-green-700' },
+            { id: 2, name: 'x²項', suffix: 'x²', color: 'text-red-700' }
+        ];
+        const RANKS = [-4, -3, -2, -1, 0, 1, 2, 3, 4];
+
+        // 系統狀態
+        let gameState = 'MENU'; // MENU, LOBBY, PLAYING, QUIZ, GAME_OVER
+        let gameMode = 'SINGLE'; // SINGLE, MULTI
+        
+        // 遊戲狀態 (單機/雲端共用)
+        let deck = [];
+        let players = []; // 3 players max
+        let tableDiscards = [];
+        let turn = 0; // 0, 1, 2 (index in players array)
+        let phase = 'INIT'; // DRAW, DISCARD, REACTION
+        let lastDiscard = null;
+        let drawnTileId = null;
+        let reactionsMap = {}; // Multi: {uid: 'SKIP'/'PONG' etc}
+        let reactionOptions = null; // Local options
+
+        let gameTimer = null;
+        let myServerIndex = 0; // 在 players 陣列中的位置
+
+        // Firebase
+        let db, auth;
+        let myUid = null;
+        let myName = "玩家_" + Math.floor(Math.random() * 9000 + 1000);
+        let roomCode = null;
+        let unsubRoom = null;
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+        // 測驗系統
+        let quizTargetConst = 0, quizTargetX = 0, quizTargetX2 = 0, quizWinType = '', quizFinalHand = [];
+
+        // 初始化 Firebase
+        async function initFirebase() {
+            if (typeof __firebase_config === 'undefined' || !__firebase_config) {
+                document.getElementById('connection-status').innerText = '僅單機模式';
+                document.getElementById('connection-status').classList.add('text-red-400');
+                return;
+            }
+            
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+
+            try {
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    await signInWithCustomToken(auth, __initial_auth_token);
+                } else {
+                    await signInAnonymously(auth);
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) {
+                        myUid = user.uid;
+                        document.getElementById('connection-status').innerText = '線上 (已連線)';
+                        document.getElementById('connection-status').classList.remove('text-gray-400');
+                        document.getElementById('connection-status').classList.add('text-green-400');
+                        document.getElementById('btn-create-room').disabled = false;
+                        document.getElementById('btn-join-room-modal').disabled = false;
+                    }
+                });
+            } catch (e) {
+                console.error("Auth error", e);
+                document.getElementById('connection-status').innerText = '連線失敗';
+            }
+        }
+        initFirebase();
+
+        // --- 核心共用邏輯 ---
+        function generateDeck() {
+            let d = []; let idCounter = 0;
+            for (let suit = 0; suit < 3; suit++) {
+                for (let rank = 0; rank < 9; rank++) {
+                    for (let copy = 0; copy < 4; copy++) {
+                        d.push({ id: `t_${idCounter++}`, suit, rank, value: RANKS[rank], label: `${RANKS[rank]}${SUITS[suit].suffix}` });
+                    }
+                }
+            }
+            for (let i = d.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [d[i], d[j]] = [d[j], d[i]];
+            }
+            return d;
+        }
+
+        function sortHand(hand) {
+            return [...hand].sort((a, b) => {
+                if (a.suit !== b.suit) return a.suit - b.suit;
+                return a.rank - b.rank;
+            });
+        }
+
+        function checkWin(tiles) {
+            if (tiles.length % 3 !== 2) return false;
+            const counts = [[0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0], [0,0,0,0,0,0,0,0,0]];
+            tiles.forEach(t => counts[t.suit][t.rank]++);
+            const solve = (hasEye) => {
+                let s = -1, r = -1;
+                for (let i = 0; i < 3; i++) {
+                    for (let j = 0; j < 9; j++) {
+                        if (counts[i][j] > 0) { s = i; r = j; break; }
+                    }
+                    if (s !== -1) break;
+                }
+                if (s === -1) return true;
+
+                if (!hasEye && counts[s][r] >= 2) {
+                    counts[s][r] -= 2; if (solve(true)) { counts[s][r] += 2; return true; } counts[s][r] += 2;
+                }
+                if (counts[s][r] >= 3) {
+                    counts[s][r] -= 3; if (solve(hasEye)) { counts[s][r] += 3; return true; } counts[s][r] += 3;
+                }
+                if (r <= 6 && counts[s][r] > 0 && counts[s][r+1] > 0 && counts[s][r+2] > 0) {
+                    counts[s][r]--; counts[s][r+1]--; counts[s][r+2]--;
+                    if (solve(hasEye)) { counts[s][r]++; counts[s][r+1]++; counts[s][r+2]++; return true; }
+                    counts[s][r]++; counts[s][r+1]++; counts[s][r+2]++;
+                }
+                return false;
+            };
+            return solve(false);
+        }
+
+        // --- UI 流程切換 ---
+        function setUIState(state) {
+            gameState = state;
+            clearTimeout(gameTimer);
+            document.getElementById('screen-menu').classList.toggle('hidden', state !== 'MENU');
+            document.getElementById('screen-lobby').classList.toggle('hidden', state !== 'LOBBY');
+            document.getElementById('screen-game').classList.toggle('hidden', state === 'MENU' || state === 'LOBBY');
+            document.getElementById('modal-quiz').classList.toggle('hidden', state !== 'QUIZ');
+            document.getElementById('modal-gameover').classList.toggle('hidden', state !== 'GAME_OVER');
+            document.getElementById('btn-quit').classList.toggle('hidden', state === 'MENU');
+        }
+
+        window.quitGame = function() {
+            if (unsubRoom) { unsubRoom(); unsubRoom = null; }
+            roomCode = null;
+            setUIState('MENU');
+        };
+
+        // --- 單人遊戲邏輯 (3 人對戰) ---
+        window.startSinglePlayer = function() {
+            gameMode = 'SINGLE';
+            myServerIndex = 0;
+            deck = generateDeck();
+            
+            const p0Hand = [...sortHand(deck.splice(0, 13)), deck.splice(0, 1)[0]]; // 14張
+            players = [
+                { id: 0, uid: 'local', name: '你 (玩家)', hand: p0Hand, melds: [] },
+                { id: 1, uid: 'cpu1', name: '下家 (電腦 1)', hand: sortHand(deck.splice(0, 13)), melds: [] },
+                { id: 2, uid: 'cpu2', name: '上家 (電腦 2)', hand: sortHand(deck.splice(0, 13)), melds: [] }
+            ];
+            
+            tableDiscards = []; turn = 0; phase = 'DISCARD'; drawnTileId = p0Hand[13].id;
+            lastDiscard = null; reactionOptions = null;
+            
+            setUIState('PLAYING');
+            updateUI();
+            processSinglePlayerLoop();
+        };
+
+        function processSinglePlayerLoop() {
+            if (gameState !== 'PLAYING' || gameMode !== 'SINGLE') return;
+
+            if (phase === 'DRAW') {
+                if (deck.length === 0) { triggerGameOver({ type: 'DRAW', msg: '流局！牌山已摸完。' }); return; }
+                gameTimer = setTimeout(() => {
+                    const drawn = deck.pop();
+                    players[turn].hand.push(drawn);
+                    if (turn === 0) {
+                        drawnTileId = drawn.id;
+                    } else {
+                        if (checkWin(players[turn].hand)) {
+                            triggerGameOver({ playerIdx: turn, type: 'TSUMO', msg: `${players[turn].name} 自摸！`, hand: sortHand(players[turn].hand) });
+                            return;
+                        }
+                        players[turn].hand = sortHand(players[turn].hand);
+                    }
+                    phase = 'DISCARD'; updateUI(); processSinglePlayerLoop();
+                }, 500);
+            } 
+            else if (phase === 'DISCARD' && turn !== 0) {
+                gameTimer = setTimeout(() => {
+                    const h = players[turn].hand;
+                    const discarded = h.splice(Math.floor(Math.random() * h.length), 1)[0];
+                    players[turn].hand = sortHand(h);
+                    tableDiscards.push(discarded);
+                    lastDiscard = { playerIdx: turn, tile: discarded };
+                    phase = 'REACTION'; updateUI(); processSinglePlayerLoop();
+                }, 800);
+            }
+            else if (phase === 'REACTION') {
+                if (lastDiscard && lastDiscard.playerIdx !== 0) {
+                    const pHand = players[0].hand; const tile = lastDiscard.tile;
+                    let canRon = checkWin([...pHand, tile]);
+                    let canPong = pHand.filter(t => t.suit === tile.suit && t.rank === tile.rank).length >= 2;
+                    let chowOptions = [];
+                    // 3 人遊戲：上家是 index 2, 我是 0
+                    if (lastDiscard.playerIdx === 2) {
+                        const s = tile.suit, r = tile.rank;
+                        const has = (rank) => pHand.find(t => t.suit === s && t.rank === rank);
+                        if (has(r-2) && has(r-1)) chowOptions.push([has(r-2), has(r-1)]);
+                        if (has(r-1) && has(r+1)) chowOptions.push([has(r-1), has(r+1)]);
+                        if (has(r+1) && has(r+2)) chowOptions.push([has(r+1), has(r+2)]);
+                    }
+                    if (canRon || canPong || chowOptions.length > 0) {
+                        reactionOptions = { canRon, canPong, chowOptions }; updateUI();
+                    } else {
+                        reactionOptions = null; turn = (turn + 1) % 3; phase = 'DRAW'; updateUI(); processSinglePlayerLoop();
+                    }
+                } else {
+                    reactionOptions = null; turn = (turn + 1) % 3; phase = 'DRAW'; updateUI(); processSinglePlayerLoop();
+                }
+            }
+        }
+
+        // --- 多人遊戲 Firebase 邏輯 ---
+        window.showJoinModal = () => { document.getElementById('modal-join-room').classList.remove('hidden'); };
+        window.hideJoinModal = () => { document.getElementById('modal-join-room').classList.add('hidden'); document.getElementById('input-room-code').value = ''; };
+
+        window.createRoom = async function() {
+            if (!db || !myUid) return;
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            roomCode = code;
+            
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+            await setDoc(roomRef, {
+                roomId: code, host: myUid, status: 'LOBBY',
+                players: [{ uid: myUid, name: myName }]
+            });
+            listenToRoom();
+            setUIState('LOBBY');
+        };
+
+        window.joinRoom = async function() {
+            if (!db || !myUid) return;
+            const code = document.getElementById('input-room-code').value.toUpperCase();
+            if(code.length !== 6) return;
+            
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+            const snap = await getDoc(roomRef);
+            if (!snap.exists() || snap.data().status !== 'LOBBY' || snap.data().players.length >= 3) {
+                alert("房間不存在、遊戲已開始或人數已滿！"); return;
+            }
+            const data = snap.data();
+            if(!data.players.find(p => p.uid === myUid)){
+                data.players.push({ uid: myUid, name: myName });
+                await updateDoc(roomRef, { players: data.players });
+            }
+            roomCode = code;
+            hideJoinModal(); listenToRoom(); setUIState('LOBBY');
+        };
+
+        function listenToRoom() {
+            if (unsubRoom) unsubRoom();
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+            unsubRoom = onSnapshot(roomRef, (snap) => {
+                if (!snap.exists()) { quitGame(); return; }
+                const data = snap.data();
+                
+                if (data.status === 'LOBBY') {
+                    document.getElementById('lobby-room-code').innerText = data.roomId;
+                    document.getElementById('lobby-player-count').innerText = data.players.length;
+                    document.getElementById('lobby-players').innerHTML = data.players.map((p, i) => `<li>${i+1}. ${p.name} ${p.uid===data.host?'(房主)':''} ${p.uid===myUid?'(你)':''}</li>`).join('');
+                    
+                    if (data.host === myUid) {
+                        document.getElementById('lobby-host-controls').classList.remove('hidden');
+                        document.getElementById('lobby-guest-msg').classList.add('hidden');
+                    } else {
+                        document.getElementById('lobby-host-controls').classList.add('hidden');
+                        document.getElementById('lobby-guest-msg').classList.remove('hidden');
+                    }
+                } 
+                else if (data.status === 'PLAYING') {
+                    if(gameState === 'LOBBY') setUIState('PLAYING');
+                    gameMode = 'MULTI';
+                    
+                    players = data.players; // 包含手牌等
+                    deck = data.deck;
+                    tableDiscards = data.tableDiscards || [];
+                    turn = data.turn;
+                    phase = data.phase;
+                    lastDiscard = data.lastDiscard;
+                    drawnTileId = data.drawnTileId;
+                    reactionsMap = data.reactions || {};
+                    myServerIndex = players.findIndex(p => p.uid === myUid);
+                    
+                    updateUI();
+                    processMultiplayerState();
+                }
+                else if (data.status === 'GAME_OVER') {
+                    triggerGameOver(data.gameOverInfo);
+                }
+            }, (error) => {
+                console.error("Room listener error", error);
+            });
+        }
+
+        window.startMultiplayerGame = async function() {
+            if (!db || !roomCode) return;
+            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+            const snap = await getDoc(roomRef);
+            let roomPlayers = snap.data().players;
+            
+            // 如果不到 3 人，補齊電腦玩家
+            while (roomPlayers.length < 3) {
+                roomPlayers.push({ uid: `cpu_${roomPlayers.length}`, name: `電腦 ${roomPlayers.length}` });
+            }
+
+            let newDeck = generateDeck();
+            
+            // 發牌
+            roomPlayers.forEach((p, idx) => {
+                let h = newDeck.splice(0, idx === 0 ? 14 : 13);
+                p.melds = [];
+                if(idx === 0) {
+                    const last = h.pop();
+                    p.hand = [...sortHand(h), last];
+                } else {
+                    p.hand = sortHand(h);
+                }
+            });
+
+            await updateDoc(roomRef, {
+                status: 'PLAYING', players: roomPlayers, deck: newDeck, tableDiscards: [],
+                turn: 0, phase: 'DISCARD', lastDiscard: null, drawnTileId: roomPlayers[0].hand[13].id, reactions: {}
+            });
+        };
+
+        // --- 多人遊戲狀態處理 (由各客戶端驅動) ---
+        function processMultiplayerState() {
+            if (phase === 'DRAW' && turn === myServerIndex) {
+                // 我的回合，負責抽牌
+                setTimeout(async () => {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    if (deck.length === 0) {
+                        await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: { type: 'DRAW', msg: '流局！' } }); return;
+                    }
+                    let newDeck = [...deck];
+                    const drawn = newDeck.pop();
+                    let newPlayers = [...players];
+                    newPlayers[turn].hand.push(drawn);
+                    
+                    // 檢查是否自摸，電腦會自動胡，真人手動按
+                    if (newPlayers[turn].uid.startsWith('cpu') && checkWin(newPlayers[turn].hand)) {
+                         await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: { playerIdx: turn, type: 'TSUMO', msg: `${newPlayers[turn].name} 自摸！`, hand: sortHand(newPlayers[turn].hand) } }); return;
+                    }
+
+                    if (newPlayers[turn].uid.startsWith('cpu')) {
+                        newPlayers[turn].hand = sortHand(newPlayers[turn].hand);
+                    }
+
+                    await updateDoc(roomRef, { deck: newDeck, players: newPlayers, phase: 'DISCARD', drawnTileId: drawn.id });
+                }, 500);
+            }
+            else if (phase === 'DISCARD' && turn === myServerIndex && players[myServerIndex].uid.startsWith('cpu')) {
+                // (如果自己變成了房主，且輪到電腦，由房主代為出牌) - 但這裡簡化，直接讓所有人判斷，只要是我負責運算這個 CPU 即可。
+                // 為了防止重複寫入，只有房主 (index 0) 負責電腦的邏輯
+                if (myServerIndex === 0) {
+                    setTimeout(async () => {
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                        let newPlayers = [...players];
+                        const h = newPlayers[turn].hand;
+                        const discarded = h.splice(Math.floor(Math.random() * h.length), 1)[0];
+                        newPlayers[turn].hand = sortHand(h);
+                        
+                        let newDiscards = [...tableDiscards, discarded];
+                        await updateDoc(roomRef, { players: newPlayers, tableDiscards: newDiscards, phase: 'REACTION', lastDiscard: { playerIdx: turn, tile: discarded }, reactions: {} });
+                    }, 1000);
+                }
+            }
+            else if (phase === 'REACTION') {
+                if (lastDiscard.playerIdx !== myServerIndex && !players[myServerIndex].uid.startsWith('cpu')) {
+                    // 判斷真人是否可以反應
+                    if (!reactionsMap[myUid]) {
+                        const pHand = players[myServerIndex].hand; const tile = lastDiscard.tile;
+                        let canRon = checkWin([...pHand, tile]);
+                        let canPong = pHand.filter(t => t.suit === tile.suit && t.rank === tile.rank).length >= 2;
+                        let chowOptions = [];
+                        if (lastDiscard.playerIdx === (myServerIndex + 2) % 3) { // 上家 (Right)
+                            const s = tile.suit, r = tile.rank;
+                            const has = (rank) => pHand.find(t => t.suit === s && t.rank === rank);
+                            if (has(r-2) && has(r-1)) chowOptions.push([has(r-2), has(r-1)]);
+                            if (has(r-1) && has(r+1)) chowOptions.push([has(r-1), has(r+1)]);
+                            if (has(r+1) && has(r+2)) chowOptions.push([has(r+1), has(r+2)]);
+                        }
+                        if (canRon || canPong || chowOptions.length > 0) {
+                            reactionOptions = { canRon, canPong, chowOptions }; updateUI();
+                        } else {
+                            // 無法反應，自動 Skip
+                            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                            updateDoc(roomRef, { [`reactions.${myUid}`]: 'SKIP' });
+                        }
+                    }
+                } 
+                else if (myServerIndex === 0) { 
+                    // 房主負責幫電腦 Skip 以及推進回合
+                    let allSkipped = true;
+                    for(let i=0; i<3; i++) {
+                        if (i === lastDiscard.playerIdx) continue;
+                        if (players[i].uid.startsWith('cpu') && !reactionsMap[players[i].uid]) {
+                            // 電腦簡單邏輯：不吃碰胡，直接 SKIP
+                            reactionsMap[players[i].uid] = 'SKIP';
+                            const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                            updateDoc(roomRef, { [`reactions.${players[i].uid}`]: 'SKIP' });
+                        }
+                        if (reactionsMap[players[i].uid] !== 'SKIP') allSkipped = false;
+                    }
+                    if (allSkipped) {
+                        // 推進至下一位
+                        const nextTurn = (lastDiscard.playerIdx + 1) % 3;
+                        const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                        updateDoc(roomRef, { phase: 'DRAW', turn: nextTurn, reactions: {} });
+                    }
+                }
+            }
+        }
+
+
+        // --- 玩家主動互動 (點擊牌 / 按鈕) ---
+        window.handlePlayerDiscard = async function(index) {
+            if (turn !== myServerIndex || phase !== 'DISCARD') return;
+            const discarded = players[myServerIndex].hand.splice(index, 1)[0];
+            players[myServerIndex].hand = sortHand(players[myServerIndex].hand);
+            drawnTileId = null; tableDiscards.push(discarded);
+            lastDiscard = { playerIdx: myServerIndex, tile: discarded };
+            phase = 'REACTION';
+            reactionOptions = null;
+            
+            if(gameMode === 'SINGLE') {
+                updateUI(); processSinglePlayerLoop();
+            } else {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                await updateDoc(roomRef, { players, tableDiscards, lastDiscard, phase: 'REACTION', drawnTileId: null, reactions: {} });
+            }
+        };
+
+        window.handleReaction = async function(action, chowIdx = -1) {
+            if (action === 'SKIP') {
+                reactionOptions = null;
+                if(gameMode === 'SINGLE') {
+                    turn = (turn + 1) % 3; phase = 'DRAW'; updateUI(); processSinglePlayerLoop();
+                } else {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    updateDoc(roomRef, { [`reactions.${myUid}`]: 'SKIP' });
+                    updateUI();
+                }
+            } 
+            else if (action === 'RON') {
+                triggerQuiz('RON');
+            }
+            else if (action === 'PONG') {
+                const tile = lastDiscard.tile; let removed = 0;
+                players[myServerIndex].hand = players[myServerIndex].hand.filter(t => {
+                    if (removed < 2 && t.suit === tile.suit && t.rank === tile.rank) { removed++; return false; }
+                    return true;
+                });
+                players[myServerIndex].melds.push({ type: 'PONG', tiles: [tile, tile, tile] });
+                
+                reactionOptions = null; drawnTileId = null; turn = myServerIndex; phase = 'DISCARD';
+                if(gameMode === 'SINGLE') { updateUI(); }
+                else {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    updateDoc(roomRef, { players, phase: 'DISCARD', turn: myServerIndex, reactions: {} });
+                }
+            }
+            else if (action === 'CHOW') {
+                const chowTiles = reactionOptions.chowOptions[chowIdx]; const tile = lastDiscard.tile;
+                const idsToRemove = chowTiles.map(t => t.id);
+                players[myServerIndex].hand = players[myServerIndex].hand.filter(t => !idsToRemove.includes(t.id));
+                players[myServerIndex].melds.push({ type: 'CHOW', tiles: sortHand([...chowTiles, tile]) });
+                
+                reactionOptions = null; drawnTileId = null; turn = myServerIndex; phase = 'DISCARD';
+                if(gameMode === 'SINGLE') { updateUI(); }
+                else {
+                    const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                    updateDoc(roomRef, { players, phase: 'DISCARD', turn: myServerIndex, reactions: {} });
+                }
+            }
+        };
+
+        window.handleHuClick = function() {
+            if (phase === 'DISCARD' && turn === myServerIndex) {
+                if (checkWin(players[myServerIndex].hand)) triggerQuiz('TSUMO');
+                else showNotFormedPopup();
+            } else if (phase === 'REACTION' && reactionOptions?.canRon) {
+                triggerQuiz('RON');
+            } else { showNotFormedPopup(); }
+        };
+
+        function showNotFormedPopup() {
+            const el = document.getElementById('popup-not-formed');
+            el.classList.remove('hidden'); el.classList.add('flex');
+            setTimeout(() => { el.classList.add('hidden'); el.classList.remove('flex'); }, 2000);
+        }
+
+        window.toggleRules = function(show) { document.getElementById('modal-rules').classList.toggle('hidden', !show); };
+
+        // --- 測驗系統 (化簡多項式) ---
+        function triggerQuiz(type) {
+            if(gameMode === 'MULTI') {
+                 // 廣播給其他玩家知道我正在解題
+                 const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                 updateDoc(roomRef, { status: 'QUIZ', quizPlayer: myName });
+            }
+            
+            setUIState('QUIZ');
+            quizWinType = type;
+            let allTiles = [...players[myServerIndex].hand];
+            players[myServerIndex].melds.forEach(m => allTiles.push(...m.tiles));
+            
+            if (type === 'RON') {
+                allTiles.push(lastDiscard.tile);
+                quizFinalHand = sortHand([...players[myServerIndex].hand, lastDiscard.tile]);
+            } else {
+                quizFinalHand = sortHand([...players[myServerIndex].hand]);
+            }
+
+            quizTargetConst = allTiles.filter(t => t.suit === 0).reduce((s, t) => s + t.value, 0);
+            quizTargetX = allTiles.filter(t => t.suit === 1).reduce((s, t) => s + t.value, 0);
+            quizTargetX2 = allTiles.filter(t => t.suit === 2).reduce((s, t) => s + t.value, 0);
+
+            document.getElementById('quiz-const').value = '';
+            document.getElementById('quiz-x').value = '';
+            document.getElementById('quiz-x2').value = '';
+            document.getElementById('quiz-melds').innerHTML = players[myServerIndex].melds.map(m => `<div class="flex gap-1 bg-black/30 p-1 rounded">${m.tiles.map(t => renderTileHTML(t)).join('')}</div>`).join('');
+            document.getElementById('quiz-hand').innerHTML = quizFinalHand.map(t => renderTileHTML(t)).join('');
+        }
+
+        window.submitQuiz = async function() {
+            const c = parseInt(document.getElementById('quiz-const').value) || 0;
+            const x = parseInt(document.getElementById('quiz-x').value) || 0;
+            const x2 = parseInt(document.getElementById('quiz-x2').value) || 0;
+
+            const isCorrect = (c === quizTargetConst && x === quizTargetX && x2 === quizTargetX2);
+            let info;
+            
+            if (isCorrect) {
+                const msg = quizWinType === 'TSUMO' ? `${players[myServerIndex].name} 自摸並化簡正確！` : `${players[myServerIndex].name} 食糊並化簡正確！`;
+                info = { playerIdx: myServerIndex, type: quizWinType, msg, hand: quizFinalHand };
+            } else {
+                info = { playerIdx: myServerIndex, type: 'ZHA_HU', msg: `${players[myServerIndex].name} 詐糊！多項式化簡錯誤！`, hand: quizFinalHand, correctAnswers: { c: quizTargetConst, x: quizTargetX, x2: quizTargetX2 } };
+            }
+
+            if(gameMode === 'SINGLE') {
+                triggerGameOver(info);
+            } else {
+                const roomRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', roomCode);
+                await updateDoc(roomRef, { status: 'GAME_OVER', gameOverInfo: info });
+            }
+        };
+
+        function triggerGameOver(info) {
+            setUIState('GAME_OVER');
+            document.getElementById('go-title').innerText = info.msg;
+            const hCont = document.getElementById('go-hand-container');
+            const zInfo = document.getElementById('go-zha-hu-info');
+            
+            if (info.type === 'DRAW') { hCont.classList.add('hidden'); zInfo.classList.add('hidden'); }
+            else {
+                hCont.classList.remove('hidden'); hCont.classList.add('flex');
+                document.getElementById('go-melds').innerHTML = players[info.playerIdx].melds.map(m => `<div class="flex gap-1 bg-black/30 p-1 rounded">${m.tiles.map(t => renderTileHTML(t)).join('')}</div>`).join('');
+                document.getElementById('go-hand').innerHTML = info.hand.map(t => renderTileHTML(t)).join('');
+
+                if (info.type === 'ZHA_HU') {
+                    zInfo.classList.remove('hidden');
+                    let eq = [];
+                    if (info.correctAnswers.x2 !== 0) eq.push(`${info.correctAnswers.x2}x²`);
+                    if (info.correctAnswers.x !== 0) eq.push((info.correctAnswers.x > 0 && eq.length > 0 ? '+' : '') + `${info.correctAnswers.x}x`);
+                    if (info.correctAnswers.c !== 0 || eq.length === 0) eq.push((info.correctAnswers.c > 0 && eq.length > 0 ? '+' : '') + `${info.correctAnswers.c}`);
+                    document.getElementById('go-correct-ans').innerText = eq.join(' ');
+                } else zInfo.classList.add('hidden');
+            }
+        }
+
+
+        // --- UI 渲染邏輯 ---
+        function renderTileHTML(tile, selectable = false, onClickStr = '') {
+            return `<div onclick="${onClickStr}" class="w-12 h-16 bg-white border-b-4 border-r-2 border-gray-300 rounded shadow m-0.5 flex items-center justify-center text-lg font-bold ${SUITS[tile.suit].color} ${selectable ? 'cursor-pointer tile-hover' : ''}">${tile.label}</div>`;
+        }
+
+        function renderHiddenTile() {
+            return `<div class="w-12 h-8 bg-emerald-700 border border-emerald-900 rounded shadow m-0.5 relative after:content-[''] after:absolute after:inset-1 after:border after:border-emerald-800 after:rounded-sm"></div>`;
+        }
+
+        function updateUI() {
+            if (gameState !== 'PLAYING') return;
+
+            document.getElementById('deck-info').innerText = `牌山剩餘: ${deck.length} 隻`;
+
+            // 映射 3 人位子 (以我自己為中心 myServerIndex)
+            const getRelativeIdx = (offset) => (myServerIndex + offset) % 3;
+            const pMe = players[myServerIndex];
+            const pLeft = players[getRelativeIdx(1)]; // 下家在左
+            const pRight = players[getRelativeIdx(2)]; // 上家在右
+
+            // Left (下家)
+            const c1 = document.getElementById('cpu1-container');
+            c1.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(1) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
+            document.getElementById('cpu1-name').innerText = `${pLeft.name}\n(剩 ${pLeft.hand.length})`;
+            document.getElementById('cpu1-hand').innerHTML = pLeft.hand.map(() => renderHiddenTile()).join('');
+
+            // Right (上家)
+            const c2 = document.getElementById('cpu2-container');
+            c2.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(2) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
+            document.getElementById('cpu2-name').innerText = `${pRight.name}\n(剩 ${pRight.hand.length})`;
+            document.getElementById('cpu2-hand').innerHTML = pRight.hand.map(() => renderHiddenTile()).join('');
+
+            // Discards
+            document.getElementById('table-discards').innerHTML = tableDiscards.length === 0 
+                ? `<span class="text-emerald-500 italic py-4">尚無棄牌</span>`
+                : tableDiscards.map((t, i) => `<div class="${(i === tableDiscards.length - 1 && phase === 'REACTION') ? 'ring-2 ring-red-500 rounded' : ''}">${renderTileHTML(t)}</div>`).join('');
+
+            // Player Zone (Me)
+            const pZone = document.getElementById('player-container');
+            pZone.className = `flex flex-col items-center p-2 pb-6 rounded-xl ${turn === myServerIndex ? 'bg-emerald-800/60 ring-2 ring-yellow-400' : ''}`;
+            document.getElementById('player-name-display').innerText = `${pMe.name} (你)`;
+
+            // Melds
+            const meldsEl = document.getElementById('player-melds');
+            if (pMe.melds.length > 0) {
+                meldsEl.classList.remove('hidden');
+                meldsEl.innerHTML = pMe.melds.map(m => `<div class="flex bg-black/30 p-1 rounded">${m.tiles.map(t => renderTileHTML(t)).join('')}</div>`).join('');
+            } else meldsEl.classList.add('hidden');
+
+            // Hand
+            document.getElementById('player-hand').innerHTML = pMe.hand.map((t, i) => {
+                const selectable = (turn === myServerIndex && phase === 'DISCARD');
+                return `<div class="${t.id === drawnTileId ? 'ml-8' : ''}">${renderTileHTML(t, selectable, selectable ? `window.handlePlayerDiscard(${i})` : '')}</div>`;
+            }).join('');
+
+            // Action Center & Status Msg
+            const actionCenter = document.getElementById('action-center');
+            const msgEl = document.getElementById('multiplayer-status-msg');
+            actionCenter.innerHTML = ''; msgEl.classList.add('hidden');
+
+            if (phase === 'DISCARD' && turn === myServerIndex && !reactionOptions) {
+                actionCenter.innerHTML = `<div class="text-yellow-300 font-bold text-xl animate-pulse">請選擇並打出一張牌</div>`;
+            } else if (reactionOptions) {
+                let btns = `<div class="flex gap-3 bg-gray-900/80 p-2 px-4 rounded-lg shadow-md border border-gray-600"><span class="text-white font-bold self-center mr-2">行動:</span>`;
+                if (reactionOptions.canPong) btns += `<button onclick="handleReaction('PONG')" class="px-5 py-2 bg-blue-600 hover:bg-blue-500 rounded text-white font-bold text-lg">碰</button>`;
+                if (reactionOptions.chowOptions) reactionOptions.chowOptions.forEach((opt, idx) => {
+                    btns += `<button onclick="handleReaction('CHOW', ${idx})" class="px-4 py-2 bg-green-600 hover:bg-green-500 rounded text-white font-bold text-lg">吃 (${opt[0].label}, ${opt[1].label})</button>`;
+                });
+                btns += `<button onclick="handleReaction('SKIP')" class="px-5 py-2 bg-gray-500 hover:bg-gray-400 rounded text-white font-bold text-lg">過</button></div>`;
+                actionCenter.innerHTML = btns;
+            } else if (gameMode === 'MULTI' && (phase === 'REACTION' || turn !== myServerIndex)) {
+                msgEl.classList.remove('hidden');
+                msgEl.innerText = "等待其他玩家動作...";
+            }
+        }
+    </script>
+</body>
+</html>
