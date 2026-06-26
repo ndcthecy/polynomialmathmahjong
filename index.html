@@ -54,6 +54,11 @@
                 <span class="text-red-300 font-bold">x²項 (-4x² 至 4x²)</span><br/>
             </p>
             
+            <!-- 新增：玩家名稱輸入框 -->
+            <div class="mb-6 w-full">
+                <input type="text" id="player-name-input" maxlength="12" class="w-full text-center text-2xl font-bold p-3 text-gray-900 rounded bg-emerald-50 focus:bg-white focus:outline-none focus:ring-4 ring-yellow-400" placeholder="請輸入你的暱稱">
+            </div>
+
             <div class="flex flex-col gap-4">
                 <button onclick="startSinglePlayer()" class="px-8 py-3 bg-gray-600 hover:bg-gray-500 text-white font-bold rounded-lg shadow border border-gray-500 text-xl transition-transform hover:scale-105">
                     單人遊戲 (與電腦對戰)
@@ -117,10 +122,10 @@
         </div>
 
         <div class="flex flex-1 items-center justify-between px-4">
-            <!-- Left: 下家 (Player 1) -->
-            <div id="cpu1-container" class="flex flex-col items-center p-2 rounded-lg w-32">
-                <div id="cpu1-name" class="mb-2 text-sm font-bold text-yellow-200">下家</div>
-                <div id="cpu1-hand" class="flex flex-col min-h-[510px] justify-center"></div>
+            <!-- Left: 上家 (Prev Player) -->
+            <div id="cpu-left-container" class="flex flex-col items-center p-2 rounded-lg w-32">
+                <div id="cpu-left-name" class="mb-2 text-sm font-bold text-yellow-200 text-center">上家</div>
+                <div id="cpu-left-hand" class="flex flex-col min-h-[510px] justify-center"></div>
             </div>
 
             <!-- Center: 桌面棄牌區 -->
@@ -133,10 +138,10 @@
                 </div>
             </div>
 
-            <!-- Right: 上家 (Player 2) -->
-            <div id="cpu2-container" class="flex flex-col items-center p-2 rounded-lg w-32">
-                <div id="cpu2-name" class="mb-2 text-sm font-bold text-yellow-200">上家</div>
-                <div id="cpu2-hand" class="flex flex-col min-h-[510px] justify-center"></div>
+            <!-- Right: 下家 (Next Player) -->
+            <div id="cpu-right-container" class="flex flex-col items-center p-2 rounded-lg w-32">
+                <div id="cpu-right-name" class="mb-2 text-sm font-bold text-yellow-200 text-center">下家</div>
+                <div id="cpu-right-hand" class="flex flex-col min-h-[510px] justify-center"></div>
             </div>
         </div>
 
@@ -300,18 +305,52 @@
         let unsubRoom = null;
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
 
+        // --- ！！！外部部署 (如 GitHub Pages) 的 Firebase 設定！！！ ---
+        // 若你在外部網頁執行，請在此處填入你的 Firebase 設定 (從 Firebase Console 獲取)
+        // 需啟用: Firestore Database (設定讀寫規則) 及 Authentication (匿名登入)
+        const FIREBASE_CONFIG_CUSTOM = {
+            apiKey: "AIzaSyAyYLelSfLrhIZCCJBDJCPnBgrgIcooZlQ",
+            authDomain: "polynomialmathmahjong.firebaseapp.com",
+            projectId: "polynomialmathmahjong",
+            storageBucket: "polynomialmathmahjong.firebasestorage.app",
+            messagingSenderId: "805558581882",
+            appId: "1:805558581882:web:481d0344e86f067845d9c3",
+            measurementId: "G-F029DSWRGJ"
+        }; 
+        /* 範例格式：
+        const FIREBASE_CONFIG_CUSTOM = {
+            apiKey: "AIzaSy...",
+            authDomain: "your-project.firebaseapp.com",
+            projectId: "your-project",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:abcdef"
+        };
+        */
+
         // 測驗系統
         let quizTargetConst = 0, quizTargetX = 0, quizTargetX2 = 0, quizWinType = '', quizFinalHand = [];
 
+        function updatePlayerName() {
+            const inputName = document.getElementById('player-name-input').value.trim();
+            if (inputName) myName = inputName;
+        }
+
         // 初始化 Firebase
         async function initFirebase() {
-            if (typeof __firebase_config === 'undefined' || !__firebase_config) {
-                document.getElementById('connection-status').innerText = '僅單機模式';
+            let firebaseConfig = null;
+            if (typeof __firebase_config !== 'undefined' && __firebase_config) {
+                firebaseConfig = JSON.parse(__firebase_config);
+            } else if (FIREBASE_CONFIG_CUSTOM) {
+                firebaseConfig = FIREBASE_CONFIG_CUSTOM;
+            }
+
+            if (!firebaseConfig) {
+                document.getElementById('connection-status').innerText = '僅單機模式 (未設定 Firebase)';
                 document.getElementById('connection-status').classList.add('text-red-400');
                 return;
             }
             
-            const firebaseConfig = JSON.parse(__firebase_config);
             const app = initializeApp(firebaseConfig);
             auth = getAuth(app);
             db = getFirestore(app);
@@ -414,13 +453,14 @@
 
         // --- 單人遊戲邏輯 (3 人對戰) ---
         window.startSinglePlayer = function() {
+            updatePlayerName(); // 更新玩家名稱
             gameMode = 'SINGLE';
             myServerIndex = 0;
             deck = generateDeck();
             
             const p0Hand = [...sortHand(deck.splice(0, 13)), deck.splice(0, 1)[0]]; // 14張
             players = [
-                { id: 0, uid: 'local', name: '你 (玩家)', hand: p0Hand, melds: [] },
+                { id: 0, uid: 'local', name: myName, hand: p0Hand, melds: [] },
                 { id: 1, uid: 'cpu1', name: '下家 (電腦 1)', hand: sortHand(deck.splice(0, 13)), melds: [] },
                 { id: 2, uid: 'cpu2', name: '上家 (電腦 2)', hand: sortHand(deck.splice(0, 13)), melds: [] }
             ];
@@ -494,6 +534,7 @@
 
         window.createRoom = async function() {
             if (!db || !myUid) return;
+            updatePlayerName(); // 更新玩家名稱
             const code = Math.floor(100000 + Math.random() * 900000).toString();
             roomCode = code;
             
@@ -508,6 +549,7 @@
 
         window.joinRoom = async function() {
             if (!db || !myUid) return;
+            updatePlayerName(); // 更新玩家名稱
             const code = document.getElementById('input-room-code').value.toUpperCase();
             if(code.length !== 6) return;
             
@@ -865,20 +907,20 @@
             // 映射 3 人位子 (以我自己為中心 myServerIndex)
             const getRelativeIdx = (offset) => (myServerIndex + offset) % 3;
             const pMe = players[myServerIndex];
-            const pLeft = players[getRelativeIdx(1)]; // 下家在左
-            const pRight = players[getRelativeIdx(2)]; // 上家在右
+            const pRight = players[getRelativeIdx(1)]; // 下家在右
+            const pLeft = players[getRelativeIdx(2)]; // 上家在左
 
-            // Left (下家)
-            const c1 = document.getElementById('cpu1-container');
-            c1.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(1) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
-            document.getElementById('cpu1-name').innerText = `${pLeft.name}\n(剩 ${pLeft.hand.length})`;
-            document.getElementById('cpu1-hand').innerHTML = pLeft.hand.map(() => renderHiddenTile()).join('');
+            // Left (上家)
+            const cLeft = document.getElementById('cpu-left-container');
+            cLeft.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(2) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
+            document.getElementById('cpu-left-name').innerText = `上家\n${pLeft.name}\n(剩 ${pLeft.hand.length})`;
+            document.getElementById('cpu-left-hand').innerHTML = pLeft.hand.map(() => renderHiddenTile()).join('');
 
-            // Right (上家)
-            const c2 = document.getElementById('cpu2-container');
-            c2.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(2) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
-            document.getElementById('cpu2-name').innerText = `${pRight.name}\n(剩 ${pRight.hand.length})`;
-            document.getElementById('cpu2-hand').innerHTML = pRight.hand.map(() => renderHiddenTile()).join('');
+            // Right (下家)
+            const cRight = document.getElementById('cpu-right-container');
+            cRight.className = `flex flex-col items-center p-2 rounded-lg w-32 ${turn === getRelativeIdx(1) ? 'ring-4 ring-yellow-400 bg-emerald-800/50' : ''}`;
+            document.getElementById('cpu-right-name').innerText = `下家\n${pRight.name}\n(剩 ${pRight.hand.length})`;
+            document.getElementById('cpu-right-hand').innerHTML = pRight.hand.map(() => renderHiddenTile()).join('');
 
             // Discards
             document.getElementById('table-discards').innerHTML = tableDiscards.length === 0 
